@@ -1,0 +1,114 @@
+image: acrepo.example.com/ci-cd-tools/ansible:latest
+
+include: 
+  - template: Security/Secret-Detection.gitlab-ci.yml
+
+variables:
+  ANSIBLE_HOST_KEY_CHECKING: 'false'
+  WEB_PATH: "/websites"
+  WEB_DIR: "web"
+
+stages:
+  - test
+  - sonarqube-check
+  - build
+  - deploy
+    
+.preprod_ref:
+  rules: 
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  tags:
+    - standard-runner  
+
+.prod_ref:
+  rules: 
+    - if: $CI_COMMIT_TAG =~ /v\d+\.\d+\.\d+$/
+  tags:
+    - standard-runner
+
+.pkg_preparation:
+  script:
+    - eval $(ssh-agent -s)
+    - ssh-add "$SSH_PRIVATE_KEY"
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - cat $SSH_KEY > ~/.ssh/authorized_keys
+    - chmod 600 ~/.ssh/authorized_keys
+    - tar -czf source_code.tar.gz . --exclude="deploy_scripts" --exclude=".git*" --exclude="docker*"
+    # - tar -tf source_code.tar.gz
+    - ansible-playbook -i $INVENTORY ./deploy_scripts/deploy_playbook.yml --extra-vars "env=$ENV" --extra-vars "web_user=$WEB_USER" --extra-vars "dest=$WEB_PATH/$WEB_USER/$WEB_DIR/"
+
+sonarqube-check:
+  stage: sonarqube-check
+  image: 
+    name: sonarsource/sonar-scanner-cli:latest
+    entrypoint: [""]
+  variables:
+    SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"  # Defines the location of the analysis task cache
+    GIT_DEPTH: "0"  # Tells git to fetch all the branches of the project, required by the analysis task
+  cache:
+    key: "${CI_JOB_NAME}"
+    paths:
+      - .sonar/cache
+  script: 
+    - sonar-scanner -Dsonar.projectKey=$CI_PROJECT_PATH_SLUG -Dsonar.projectName=$CI_PROJECT_PATH_SLUG -Dsonar.qualitygate.wait=true
+  #allow_failure: true
+  tags:
+  - standard-runner
+  only:
+  - main
+  needs: [secret_detection]
+
+# Jobs to deploy on shared01 platform
+.deploy_preprod:
+  extends: .preprod_ref
+  variables:
+    ENV: "preprod"
+    INVENTORY: $SHARED01_PREPROD_SERVERS
+  script:
+    - !reference [.pkg_preparation, script]
+  needs: [sonarqube-check]
+  
+.deploy_prod:
+  extends: .prod_ref
+  variables:
+    ENV: "prod"
+    INVENTORY: $SHARED01_PROD_SERVERS
+  script:
+    - !reference [.pkg_preparation, script]
+  
+# Jobs to deploy on shared02 platform
+.deploy_shared02_preprod:
+  extends: .preprod_ref
+  variables:
+    ENV: "shared02_preprod"
+    INVENTORY: $SHARED02_PREPROD_SERVERS
+  script:
+    - !reference [.pkg_preparation, script]
+  needs: [sonarqube-check]
+    
+.deploy_shared02_prod:
+  extends: .prod_ref
+  variables:
+    ENV: "shared02_prod"
+    INVENTORY: $SHARED02_PROD_SERVERS
+  script:
+    - !reference [.pkg_preparation, script]
+
+# Jobs to deploy on legacy platform
+.deploy_legacy_preprod:
+  extends: .preprod_ref
+  variables:
+    ENV: "legacy_preprod"
+    INVENTORY: $LEGACY_PREPROD_SERVERS
+  script:
+    - !reference [.pkg_preparation, script]
+  needs: [sonarqube-check]
+    
+.deploy_legacy_prod:
+  extends: .prod_ref
+  variables:
+    ENV: "legacy_prod"
+    INVENTORY: $LEGACY_PROD_SERVERS
+  script:
+    - !reference [.pkg_preparation, script]

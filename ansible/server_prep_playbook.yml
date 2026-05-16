@@ -1,0 +1,63 @@
+---
+- name: Set up LVM and apply CIS hardening
+  hosts: all
+  become: true
+  vars:
+    disk: /dev/sdc
+    vg_name: data-vg
+    lv_name: data-lv
+    mount_point: /data
+    script_url: https://raw.githubusercontent.com/chinmaymjog/azure-lamp-hosting/refs/heads/main/scripts/ubuntu_cis.sh
+    script_path: /tmp/ubuntu_cis.sh
+
+  tasks:
+    - name: Install required packages
+      apt:
+        name:
+          - lvm2
+          - xfsprogs
+        state: present
+        update_cache: yes
+
+    - name: Create physical volume
+      command: pvcreate {{ disk }}
+      args:
+        creates: "/dev/{{ disk | basename }}"
+
+    - name: Create volume group
+      command: vgcreate {{ vg_name }} {{ disk }}
+      args:
+        creates: "/dev/{{ vg_name }}"
+
+    - name: Create logical volume
+      command: lvcreate -l 100%FREE --name {{ lv_name }} {{ vg_name }}
+      args:
+        creates: "/dev/{{ vg_name }}/{{ lv_name }}"
+
+    - name: Format logical volume with XFS
+      filesystem:
+        fstype: xfs
+        dev: "/dev/{{ vg_name }}/{{ lv_name }}"
+
+    - name: Create mount point
+      file:
+        path: "{{ mount_point }}"
+        state: directory
+        mode: "0755"
+
+    - name: Mount logical volume
+      mount:
+        path: "{{ mount_point }}"
+        src: "/dev/{{ vg_name }}/{{ lv_name }}"
+        fstype: xfs
+        opts: defaults
+        state: mounted
+
+    - name: Download CIS script
+      get_url:
+        url: "{{ script_url }}"
+        dest: "{{ script_path }}"
+        mode: "0755"
+
+    - name: Run CIS script
+      command: "{{ script_path }}"

@@ -1,0 +1,48 @@
+#!/bin/bash
+
+set -e  # Exit immediately if a command exits with a non-zero status
+set -u  # Treat unset variables as an error
+set -o pipefail  # Catch errors in pipelines
+
+usage () {
+    echo "Usage: $0 --host <host> --admin <admin> --password <admin_pass> --dbname <db_name>"
+    exit 1
+}
+
+die() {
+    echo "Error: $1" >&2
+    exit 1
+}
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --host) DB_HOST="$2"; shift 2;;
+        --admin) DB_ADMIN="$2"; shift 2;;
+        --password) DB_PASS="$2"; shift 2;;
+        --dbname) DB_NAME="$2"; shift 2;;
+        --help) usage;;
+        *) die "Unknown option: $1";;
+    esac
+done
+
+# Validate required parameters
+if [[ -z "${DB_HOST:-}" || -z "${DB_ADMIN:-}" || -z "${DB_PASS:-}" || -z "${DB_NAME:-}" ]]; then
+    die "Missing parameters."
+fi
+
+echo "===> Connecting to $DB_HOST to check database existence."
+
+DB_EXISTS=$(mysql -h "$DB_HOST" -u"$DB_ADMIN" -p"$DB_PASS" --skip-column-names -e "SHOW DATABASES LIKE '$DB_NAME';") || die "Failed to check database existence."
+
+if [[ "$DB_EXISTS" == "$DB_NAME" ]]; then
+    echo "===> Database '$DB_NAME' already exists. Skipping creation."
+else
+    echo "===> Database does not exists so creating database '$DB_NAME'."
+    mysql -h "$DB_HOST" -u"$DB_ADMIN" -p"$DB_PASS" -e "
+    CREATE DATABASE IF NOT EXISTS \`$DB_NAME\`;
+    FLUSH PRIVILEGES;
+    " || die "Failed to create database '$DB_NAME'."
+    
+    echo "===> Database '$DB_NAME' created successfully."
+fi
