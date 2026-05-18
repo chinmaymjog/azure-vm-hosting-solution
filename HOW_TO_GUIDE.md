@@ -154,10 +154,51 @@ The automation plane separates dynamic, high-churn network data from stable, sta
 
 ---
 
-## 💾 Storage Layout Reference
-- **`/netappwebsites`**: (NetApp NFS) High-performance volume for application code.
-- **`/backups`**: (Azure Files NFS) Centralized repository in the Hub.
-- **`/data`**: (LVM Disk) Local persistent storage for cache/logs.
+## 💾 Storage Layout & NFS Architecture
+
+The hosting platform implements an enterprise-grade, highly-available storage layout built on segregated NFS volumes to cleanly separate application code execution from platform management state and backup archives.
+
+```mermaid
+graph TD
+    subgraph Hub ["Shared Management Hub (Backups NFS)"]
+        NFS_Backups["/backups<br>(Premium Azure Files NFS)"]
+        NFS_Backups --> Sites["/backups/sites<br>(JSON Site Metadata Registry)"]
+        NFS_Backups --> Certs["/backups/csr-certs<br>(SSL/TLS CSRs & Certs)"]
+        NFS_Backups --> Backups["/backups/shrdhosting<br>(SQL & Config Archives)"]
+    end
+
+    subgraph Spokes ["Platform Spokes (App Execution)"]
+        NFS_Websites["/netappwebsites<br>(Azure NetApp Files NFS)"]
+        Local_LVM["/data<br>(Local LVM XFS)"]
+        
+        NFS_Websites --> AppCode["/netappwebsites/{site_user}/web<br>(High-Concurrency App Files)"]
+        Local_LVM --> Logs["/data/logs<br>(Local low-latency VM logs)"]
+    end
+    
+    Jumpbox["Ansible Jumpbox"] -->|Mounts| NFS_Backups
+    WebVMs["Web Scale VMs"] -->|Mounts| NFS_Backups
+    WebVMs -->|Mounts| NFS_Websites
+```
+
+### 1. `/netappwebsites` — Azure NetApp Files (ANF) NFS
+* **Role:** High-performance application execution workspace.
+* **Technology:** Dedicated, ultra-low latency Azure NetApp Files volume mounted via NFSv4.1.
+* **Usage:** Hosts active application document roots (`/netappwebsites/{{ site_user }}/web`) and dynamic server logs.
+* **Security:** Secured using dynamic POSIX permissions (`owner: site_user`, `group: web_users`) and network service endpoints restricted exclusively to the platform spoke's database and compute subnets.
+
+### 2. `/backups` — Premium Azure Files NFS
+* **Role:** Hardened, centralized management registry and multi-environment backup vault.
+* **Technology:** Premium Azure Files NFS v4.1 share hosted globally inside the Shared Management Hub.
+* **Security:** Strictly isolated by an Azure Storage Firewall and private network endpoints, accessible only to authorized compute instances and the Ansible Jumpbox.
+* **Structure:**
+  * `/backups/sites/`: The decentralized JSON metadata registry. Every site creation (`php_site_add.yml` / `html_site_add.yml`) writes a persistent `<domain>.json` record here. All operations query this directory to discover site owners, PHP versions, database users, and HTTP authentication properties, completely deprecating legacy VM-level text indexes.
+  * `/backups/csr-certs/`: Stores public/private certificate signing requests (CSRs) and issued certificates.
+  * `/backups/shrdhosting/{{ environment }}/`: Segmented environment backups (`preprod`, `prod`) holding database dumps (`database_backup/`) and configuration archives (`apache_conf_backup/`, `site_config_backup/`).
+
+### 3. `/data` — Local LVM Storage
+* **Role:** VM-local execution layer.
+* **Technology:** High-speed local SSD managed through Logical Volume Manager (LVM) and formatted with XFS.
+* **Usage:** Dedicated to local caching, low-latency system-level logging, and dynamic runtime temp files, ensuring no local VM disk holds persistent platform state.
 
 ## 🔐 Secret Management & Access
 The platform uses **Azure Key Vault** to manage all sensitive information.
