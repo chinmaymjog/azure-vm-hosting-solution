@@ -8,14 +8,14 @@
   tasks:
     - name: Ensure metadata directory exists
       ansible.builtin.file:
-        path: "{{ DOC_ROOT }}/metadata"
+        path: "{{ SITE_LIST_PATH }}"
         state: directory
         mode: "0775"
       run_once: true
 
     - name: Find all persistent site metadata files
       ansible.builtin.find:
-        paths: "{{ DOC_ROOT }}/metadata"
+        paths: "{{ SITE_LIST_PATH }}"
         patterns: "*.json"
       register: metadata_files
 

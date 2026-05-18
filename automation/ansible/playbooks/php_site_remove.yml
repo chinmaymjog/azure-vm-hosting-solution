@@ -51,9 +51,9 @@
       set_fact:
         db_pass: "{{ (secret_response.content | from_json).value }}"
 
-    - name: Read site metadata from NetApp volume
+    - name: Read site metadata from persistent NFS store
       ansible.builtin.shell: |
-        cat {{ DOC_ROOT }}/metadata/{{ site_url }}.json
+        cat {{ SITE_LIST_PATH }}/{{ site_url }}.json
       register: site_metadata_content
       failed_when: false
       when: site_url != ""
@@ -173,9 +173,9 @@
         - php_available.stat.exists == True
         - username_from_json | default('') != ""
 
-    - name: Deleting site metadata from persistent NetApp store
+    - name: Deleting site metadata from persistent NFS store
       ansible.builtin.file:
-        path: "{{ DOC_ROOT }}/metadata/{{ site_url }}.json"
+        path: "{{ SITE_LIST_PATH }}/{{ site_url }}.json"
         state: absent
       when: sites_available.stat.exists == True
 

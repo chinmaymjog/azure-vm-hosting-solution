@@ -11,23 +11,27 @@
       when:
         - site_url != ""
 
-    - name: Get site details
+    - name: Read site metadata from persistent NFS store
       delegate_to: localhost
-      delegate_facts: true
       run_once: true
       become: false
-      ansible.builtin.shell: |
-        php_version=$(awk -F'\t' -v s={{ site_url }} '{if ($1==s) print $4}' {{ SITE_LIST_PATH }}/site_index.txt)      
-        echo $php_version
-      register: php_version
+      ansible.builtin.command:
+        cmd: "cat {{ SITE_LIST_PATH }}/{{ site_url }}.json"
+      register: site_metadata_content
+      failed_when: false
+      changed_when: false
+      when:
+        - site_url != ""
+
+    - name: Parse dynamic metadata facts
+      ansible.builtin.set_fact:
+        php_version_from_json: "{{ (hostvars['localhost']['site_metadata_content'].stdout | from_json).php_version if hostvars['localhost']['site_metadata_content'].rc == 0 else 'php8.5' }}"
       when:
         - site_url != ""
 
     - name: Start PHP-FPM service for {{ site_url }}
-      vars:
-        site_php_version: "{{ php_version.stdout }}"
       ansible.builtin.systemd:
-        name: "{{ site_php_version }}-fpm@{{ site_url }}"
+        name: "{{ php_version_from_json }}-fpm@{{ site_url }}"
         state: started
       when:
         - site_url != ""

@@ -8,6 +8,6 @@ AUTH_AVAILABLE: /etc/apache2/auth-available
 AUTH_ENABLED: /etc/apache2/auth-enabled
 PHP_FPM_SOCK_PATH: /run/php
 PHP_FPM_CONF_PATH: /etc/php/*/fpm/pool.d
-SITE_LIST_PATH: /site-data/sites
-CERT_PATH: /site-data/csr-certs
-BACKUP_PATH: /backup/new-shared01
+SITE_LIST_PATH: /backups/sites
+CERT_PATH: /backups/csr-certs
+BACKUP_PATH: /backups/shrdhosting

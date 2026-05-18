@@ -6,27 +6,24 @@
     - var_files/web_vars.yml
 
   tasks:
-    - name: Set site user
+    - name: Read site metadata from persistent NFS store
       delegate_to: localhost
-      delegate_facts: true
       run_once: true
       become: false
-      ansible.builtin.shell: |
-        user=$(awk -F'\t' -v s={{ site_url }} '{if ($1==s) print $2}' {{ SITE_LIST_PATH }}/site_index.txt)      
-        echo $user
-      register: site_main_user
+      ansible.builtin.command:
+        cmd: "cat {{ SITE_LIST_PATH }}/{{ site_url }}.json"
+      register: site_metadata_content
+      failed_when: false
+      changed_when: false
       when:
         - site_url != ""
 
-    - name: Set site auth user
-      delegate_to: localhost
-      delegate_facts: true
-      run_once: true
-      become: false
-      ansible.builtin.shell: |
-        user=$(awk -F'\t' -v s={{ site_url }} '{if ($1==s) print $2}' {{ SITE_LIST_PATH }}/site_index.txt)      
-        echo HTTP_$user | tr [:lower:] [:upper:]
-      register: site_auth_user
+    - name: Parse dynamic metadata facts
+      ansible.builtin.set_fact:
+        username_from_json: "{{ (hostvars['localhost']['site_metadata_content'].stdout | from_json).site_user if hostvars['localhost']['site_metadata_content'].rc == 0 else '' }}"
+        site_type_from_json: "{{ (hostvars['localhost']['site_metadata_content'].stdout | from_json).site_type if hostvars['localhost']['site_metadata_content'].rc == 0 else 'html' }}"
+        php_version_from_json: "{{ (hostvars['localhost']['site_metadata_content'].stdout | from_json).php_version | default('') }}"
+        created_at_from_json: "{{ (hostvars['localhost']['site_metadata_content'].stdout | from_json).created_at if hostvars['localhost']['site_metadata_content'].rc == 0 else '' }}"
       when:
         - site_url != ""
 
@@ -39,7 +36,7 @@
 
     - name: Checking if config file exist in auth-files
       vars:
-        site_user: "{{ site_auth_user.stdout }}"
+        site_user: "HTTP_{{ username_from_json | upper }}"
       ansible.builtin.stat:
         path: "{{ AUTH_FILES }}/{{ site_user }}"
       register: auth_files_state
@@ -76,10 +73,10 @@
 
     - name: Add a user and password to file and set permissions
       vars:
-        site_user: "{{ site_auth_user.stdout }}"
+        site_user: "HTTP_{{ username_from_json | upper }}"
       community.general.htpasswd:
         path: "{{ AUTH_FILES }}/{{ site_user }}"
-        name: "{{ site_auth_user.stdout }}"
+        name: "HTTP_{{ username_from_json | upper }}"
         password: "{{ site_auth_pass.stdout }}"
         owner: root
         group: web_users
@@ -91,8 +88,8 @@
 
     - name: adding auth VHOST config
       vars:
-        site_user: "{{ site_main_user.stdout }}"
-        site_authuser: "{{ site_auth_user.stdout }}"
+        site_user: "{{ username_from_json }}"
+        site_authuser: "HTTP_{{ username_from_json | upper }}"
       ansible.builtin.template:
         src: templates/http_auth.j2
         dest: "{{ AUTH_AVAILABLE }}/{{ site_url }}.conf"
@@ -102,13 +99,23 @@
         - auth_files_state.stat.exists == False
         - auth_available.stat.exists == False
 
-    - name: Updating local auth list
+    - name: Write updated site metadata to persistent NFS store
       delegate_to: localhost
-      delegate_facts: true
       run_once: true
       become: false
-      ansible.builtin.shell: |
-        echo {{ site_url }}'\t'{{ site_auth_user.stdout }}'\t'{{ site_auth_pass.stdout }} >> {{ SITE_LIST_PATH }}/http_auth_index.txt
+      ansible.builtin.copy:
+        content: "{{ site_metadata | to_nice_json }}"
+        dest: "{{ SITE_LIST_PATH }}/{{ site_url }}.json"
+        mode: "0644"
+      vars:
+        site_metadata:
+          site_url: "{{ site_url }}"
+          site_user: "{{ username_from_json }}"
+          site_type: "{{ site_type_from_json }}"
+          php_version: "{{ php_version_from_json if php_version_from_json != '' else omit }}"
+          created_at: "{{ created_at_from_json }}"
+          http_auth_user: "HTTP_{{ username_from_json | upper }}"
+          http_auth_pass: "{{ site_auth_pass.stdout }}"
       when:
         - sites_available.stat.exists == True
         - auth_files_state.stat.exists == False
