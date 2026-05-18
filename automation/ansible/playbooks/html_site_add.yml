@@ -121,13 +121,13 @@
 
     - name: Ensure metadata registry directory exists
       ansible.builtin.file:
-        path: "{{ DOC_ROOT }}/metadata"
+        path: "{{ SITE_LIST_PATH }}"
         state: directory
         mode: "0775"
         group: web_users
       run_once: true
 
-    - name: Write site metadata to persistent NetApp store
+    - name: Write site metadata to persistent NFS store
       vars:
         site_user: "{{ username.stdout }}"
       ansible.builtin.copy:
@@ -139,6 +139,6 @@
             "php_version": "NA",
             "created_at": "{{ ansible_date_time.iso8601 }}"
           }
-        dest: "{{ DOC_ROOT }}/metadata/{{ effective_site_url }}.json"
+        dest: "{{ SITE_LIST_PATH }}/{{ effective_site_url }}.json"
         mode: "0644"
       when: sites_available.stat.exists == False
