@@ -8,7 +8,6 @@
 # 1. Core Platform & Identification Parameters
 # ------------------------------------------------------------------------------
 project_name        = "shrdhosting"
-resource_group_name = "rg-shared-hosting-prod"
 location            = "West Europe"
 environment         = "prod"
 
