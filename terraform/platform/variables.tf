@@ -4,11 +4,6 @@ variable "project_name" {
   default     = "shrdhosting"
 }
 
-variable "resource_group_name" {
-  description = "Name of the resource group"
-  type        = string
-  default     = "rg-shared-hosting"
-}
 
 variable "location" {
   description = "Azure region for deployment"
