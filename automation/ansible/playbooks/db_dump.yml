@@ -75,6 +75,13 @@
         msg: "Database name for {{ site_url }} is: {{ site_db_name }}"
       when: site_db_name | default('') != ""
 
+    - name: Ensure database dump backup directory exists
+      ansible.builtin.file:
+        path: "{{ BACKUP_PATH }}/{{ web_environment }}"
+        state: directory
+        mode: "0777"
+      when: site_db_name | default('') != ""
+
     - name: Take Backup
       shell: mysqldump --force --opt --skip-lock-tables -h {{ db_host }} -u {{ db_user }}  -p"{{ db_pass }}" --databases {{ site_db_name }} | gzip > {{ BACKUP_PATH }}/{{ web_environment }}/{{ site_db_name }}_{{ ansible_facts['date_time']['date'] }}.sql.gz
       when: site_db_name | default('') != ""

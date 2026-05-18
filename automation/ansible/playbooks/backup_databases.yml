@@ -50,6 +50,12 @@
       debug:
         msg: "{{my_dbs.stdout_lines}}"
 
+    - name: Ensure database backup directory exists
+      ansible.builtin.file:
+        path: "{{ BACKUP_PATH }}/{{ web_environment }}/database_backup"
+        state: directory
+        mode: "0777"
+
     - name: Take Backup
       shell: |
         mysqldump --force --opt --skip-lock-tables -h {{ db_host }} -u {{ db_user }} -p"{{ db_pass }}" --databases {{ item }} | gzip > {{ BACKUP_PATH }}/{{ web_environment }}/database_backup/{{ item }}_{{ ansible_facts['date_time']['date'] | regex_replace('-', '') }}.sql.gz
