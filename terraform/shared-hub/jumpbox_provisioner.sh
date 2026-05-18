@@ -59,6 +59,20 @@ echo "${backup_nfs_host}:/${storage_account_name}/backups /backups nfs nfsvers=4
 umount /backups || true
 mount -a
 
+# Initialize directories on the mounted NFS share
+log "Initializing backup and metadata directories on NFS share"
+mkdir -p /backups/sites
+mkdir -p /backups/csr-certs
+mkdir -p /backups/shrdhosting/preprod/site_config_backup
+mkdir -p /backups/shrdhosting/preprod/apache_conf_backup
+mkdir -p /backups/shrdhosting/preprod/database_backup
+mkdir -p /backups/shrdhosting/prod/site_config_backup
+mkdir -p /backups/shrdhosting/prod/apache_conf_backup
+mkdir -p /backups/shrdhosting/prod/database_backup
+
+chmod -R 777 /backups
+chown -R azureuser:docker /backups
+
 # 3. System Policy
 log "Setting secure UMASK"
 echo "umask 027" | tee -a /etc/profile

@@ -6,6 +6,12 @@
     - var_files/web_vars.yml
 
   tasks:
+    - name: Ensure site config backup directory exists
+      ansible.builtin.file:
+        path: "{{ BACKUP_PATH }}/{{ web_environment }}/site_config_backup"
+        state: directory
+        mode: "0777"
+
     - name: Take Backup
       shell: >
         find -L {{ DOC_ROOT }} -maxdepth 4 -type f \( -name ".env" -o -name ".htaccess" -o -name "wp-config.php" \) -exec tar -cvf "{{ BACKUP_PATH }}/{{ web_environment }}/site_config_backup/siteconfig_{{ ansible_facts['hostname'] }}_{{ ansible_facts['date_time']['date'] | regex_replace('-', '') }}.tar" {} +

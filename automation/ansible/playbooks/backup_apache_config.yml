@@ -8,6 +8,12 @@
   tasks:
     # Use Ansible facts for date and hostname instead of shell commands
 
+    - name: Ensure Apache configuration backup directory exists
+      ansible.builtin.file:
+        path: "{{ BACKUP_PATH }}/{{ web_environment }}/apache_conf_backup"
+        state: directory
+        mode: "0777"
+
     - name: PHP Configuration Backup
       archive:
         path: "{{ PHP_FPM_CONF_PATH }}"
