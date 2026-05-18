@@ -1,0 +1,14 @@
+---
+- name: Ping all hosts
+  hosts: "{{ web_environment }}"
+  become: false
+
+  tasks:
+    - name: Ping the host
+      ansible.builtin.ping:
+      register: ping_result
+
+    - name: Display ping result
+      ansible.builtin.debug:
+        msg: "Ping successful for {{ inventory_hostname }}: {{ ping_result.ping }}"
+      when: ping_result is defined and ping_result.ping is defined

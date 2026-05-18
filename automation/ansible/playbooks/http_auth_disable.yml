@@ -1,0 +1,40 @@
+---
+- name: Disable HTTP Auth
+  hosts: "{{ web_environment }}"
+  become: true
+  vars_files:
+    - var_files/web_vars.yml
+
+  tasks:
+    - name: Checking if config file exist in auth-enabled
+      ansible.builtin.stat:
+        path: "{{ AUTH_ENABLED }}/{{ site_url }}.conf"
+      register: auth_enabled
+      when:
+        - site_url != ""
+
+    - name: Progress
+      ansible.builtin.debug:
+        msg:
+          - "Auth for {{ site_url }} already disabled"
+          - "Other tasks will be skipped"
+      when: auth_enabled.stat.exists == False
+
+    - name: Remove symlink in auth-enabled
+      ansible.builtin.file:
+        path: "{{ AUTH_ENABLED }}/{{ site_url }}.conf"
+        state: absent
+      when: auth_enabled.stat.exists == True
+
+    - name: Update vhost conf to enable HTTP Auth
+      ansible.builtin.lineinfile:
+        path: "{{ APACHE2_AVAILABLE }}/{{ site_url }}.conf"
+        search_string: "# Require all granted"
+        line: "Require all granted"
+      when: auth_enabled.stat.exists == True
+
+    - name: Restart apache2
+      ansible.builtin.systemd:
+        name: apache2
+        state: restarted
+      when: auth_enabled.stat.exists == True

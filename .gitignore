@@ -1,0 +1,43 @@
+# ==============================================================================
+# Enterprise-Grade Git Ignore Rules for Shared Hosting Platform
+# ==============================================================================
+
+# --- macOS Metadata ---
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# --- Environment & Credentials ---
+.env
+ssh-key
+ssh-key.pub
+*.pem
+*.key
+*.pub
+
+# --- Terraform Configuration ---
+**/.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+*.tfvars
+*.tfvars.json
+
+# --- Ansible Automation ---
+**/automation/ansible/hosts
+*.retry
+*.log
+
+# --- System & Editors ---
+.vscode/
+.idea/
+*.swp
+*~

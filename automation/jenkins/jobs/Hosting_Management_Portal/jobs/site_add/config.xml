@@ -1,0 +1,145 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<project>
+  <actions/>
+  <description><![CDATA[<div style="background-color: #f7f9fa; border-left: 5px solid #0056b3; padding: 15px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); font-family: -apple-system, BlinkMacSystemFont, sans-serif; color: #333;">
+  <h3 style="margin-top: 0; color: #0056b3; font-weight: 600;">🚀 Concurrent Site Onboarding Engine</h3>
+  <p style="margin-bottom: 8px; line-height: 1.5;">Deploys highly-isolated HTML or PHP sites concurrently across multiple VM cluster nodes in your preproduction and production environments.</p>
+  <div style="font-size: 0.95em; color: #555; line-height: 1.6;">
+    <b>🌟 Key Platform Features:</b>
+    <ul style="margin: 5px 0 0 15px; padding: 0;">
+      <li><b>Zero-Trust Credential Sourcing:</b> Dynamic passwordless database administrator password extraction using <i>Azure Managed Identity</i> to authenticate against Key Vault.</li>
+      <li><b>Developer-First Security:</b> Automatically configures secure <b>.env</b> files outside the public web root with strict owner-only permissions (<code>0600</code>).</li>
+      <li><b>Platform-Agnostic Validation:</b> Native assert-driven FQDN and environment parameter safety checks.</li>
+    </ul>
+  </div>
+</div>]]></description>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <hudson.model.ParametersDefinitionProperty>
+      <parameterDefinitions>
+        <hudson.model.StringParameterDefinition>
+          <name>site_url</name>
+          <description>Enter the Fully Qualified Domain Name (FQDN) of the website (e.g., mysite.com or blog.mysite.com). Do not include protocol prefixes (http://, https://) or trailing slashes (/).</description>
+          <trim>false</trim>
+        </hudson.model.StringParameterDefinition>
+        <org.biouno.unochoice.ChoiceParameter plugin="uno-choice@2.8.9">
+          <name>site_type</name>
+          <randomName>choice-parameter-108453617134528</randomName>
+          <visibleItemCount>1</visibleItemCount>
+          <script class="org.biouno.unochoice.model.GroovyScript">
+            <secureScript plugin="script-security@1399.ve6a_66547f6e1">
+              <script>return[&apos;html&apos;, &apos;php&apos;]</script>
+              <sandbox>true</sandbox>
+            </secureScript>
+            <secureFallbackScript plugin="script-security@1399.ve6a_66547f6e1">
+              <script></script>
+              <sandbox>true</sandbox>
+            </secureFallbackScript>
+          </script>
+          <projectName>site_add</projectName>
+          <projectFullName>Hosting_Management_Portal/site_add</projectFullName>
+          <choiceType>PT_SINGLE_SELECT</choiceType>
+          <filterable>false</filterable>
+          <filterLength>1</filterLength>
+        </org.biouno.unochoice.ChoiceParameter>
+        <org.biouno.unochoice.CascadeChoiceParameter plugin="uno-choice@2.8.9">
+          <name>php_version</name>
+          <randomName>choice-parameter-108656354706473</randomName>
+          <visibleItemCount>1</visibleItemCount>
+          <script class="org.biouno.unochoice.model.GroovyScript">
+            <secureScript plugin="script-security@1399.ve6a_66547f6e1">
+              <script>if (site_type == &apos;php&apos;) {
+    def factFile = new File(&apos;/etc/ansible/installed_php_versions.json&apos;)
+    if (factFile.exists()) {
+        return new groovy.json.JsonSlurper().parse(factFile)
+    }
+    return [&apos;php8.5&apos;]
+} else {
+    return [&apos;NA&apos;]
+}</script>
+              <sandbox>true</sandbox>
+            </secureScript>
+            <secureFallbackScript plugin="script-security@1399.ve6a_66547f6e1">
+              <script></script>
+              <sandbox>true</sandbox>
+            </secureFallbackScript>
+          </script>
+          <projectName>site_add</projectName>
+          <projectFullName>Hosting_Management_Portal/site_add</projectFullName>
+          <parameters class="linked-hash-map"/>
+          <referencedParameters>site_type</referencedParameters>
+          <choiceType>PT_SINGLE_SELECT</choiceType>
+          <filterable>false</filterable>
+          <filterLength>1</filterLength>
+        </org.biouno.unochoice.CascadeChoiceParameter>
+      </parameterDefinitions>
+    </hudson.model.ParametersDefinitionProperty>
+  </properties>
+  <scm class="hudson.scm.NullSCM"/>
+  <canRoam>true</canRoam>
+  <disabled>false</disabled>
+  <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
+  <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+  <triggers/>
+  <concurrentBuild>false</concurrentBuild>
+  <builders>
+    <hudson.tasks.Shell>
+      <command>if [ &quot;${site_type}&quot; = &quot;html&quot; ]; then
+	echo &quot;Adding HTML site ${site_url} concurrently on all environments&quot;
+    ansible-playbook -u &quot;$ANSIBLE_USER&quot; --private-key &quot;$ANSIBLE_PVT_KEY&quot; --extra-vars &quot;site_url=${site_url}&quot; /etc/ansible/playbooks/html_site_add.yml
+fi
+
+if [ &quot;${site_type}&quot; = &quot;php&quot; ]; then
+	echo &quot;Adding PHP ${php_version} site ${site_url} concurrently on all environments&quot;
+    ansible-playbook -u &quot;$ANSIBLE_USER&quot; --private-key &quot;$ANSIBLE_PVT_KEY&quot; --extra-vars &quot;site_url=${site_url} php_version=${php_version}&quot; /etc/ansible/playbooks/php_site_add.yml
+fi</command>
+      <configuredLocalRules/>
+    </hudson.tasks.Shell>
+  </builders>
+  <publishers>
+    <hudson.plugins.emailext.ExtendedEmailPublisher plugin="email-ext@1933.v45cec755423f">
+      <recipientList>$DEFAULT_RECIPIENTS</recipientList>
+      <configuredTriggers>
+        <hudson.plugins.emailext.plugins.trigger.AlwaysTrigger>
+          <email>
+            <subject>$PROJECT_DEFAULT_SUBJECT</subject>
+            <body>$PROJECT_DEFAULT_CONTENT</body>
+            <recipientProviders>
+              <hudson.plugins.emailext.plugins.recipients.DevelopersRecipientProvider/>
+              <hudson.plugins.emailext.plugins.recipients.ListRecipientProvider/>
+            </recipientProviders>
+            <attachmentsPattern></attachmentsPattern>
+            <attachBuildLog>false</attachBuildLog>
+            <compressBuildLog>false</compressBuildLog>
+            <replyTo>$PROJECT_DEFAULT_REPLYTO</replyTo>
+            <contentType>project</contentType>
+          </email>
+        </hudson.plugins.emailext.plugins.trigger.AlwaysTrigger>
+      </configuredTriggers>
+      <contentType>default</contentType>
+      <defaultSubject>$DEFAULT_SUBJECT</defaultSubject>
+      <defaultContent>$DEFAULT_CONTENT</defaultContent>
+      <attachmentsPattern></attachmentsPattern>
+      <presendScript>$DEFAULT_PRESEND_SCRIPT</presendScript>
+      <postsendScript>$DEFAULT_POSTSEND_SCRIPT</postsendScript>
+      <attachBuildLog>true</attachBuildLog>
+      <compressBuildLog>false</compressBuildLog>
+      <replyTo>$DEFAULT_REPLYTO</replyTo>
+      <from></from>
+      <saveOutput>false</saveOutput>
+      <disabled>false</disabled>
+      <throttlingEnabled>false</throttlingEnabled>
+    </hudson.plugins.emailext.ExtendedEmailPublisher>
+  </publishers>
+  <buildWrappers>
+    <org.jenkinsci.plugins.credentialsbinding.impl.SecretBuildWrapper plugin="credentials-binding@719.v80e905ef14eb_">
+      <bindings>
+        <org.jenkinsci.plugins.credentialsbinding.impl.SSHUserPrivateKeyBinding>
+          <credentialsId>ansible_ssh_key</credentialsId>
+          <keyFileVariable>ANSIBLE_PVT_KEY</keyFileVariable>
+          <usernameVariable>ANSIBLE_USER</usernameVariable>
+        </org.jenkinsci.plugins.credentialsbinding.impl.SSHUserPrivateKeyBinding>
+      </bindings>
+    </org.jenkinsci.plugins.credentialsbinding.impl.SecretBuildWrapper>
+  </buildWrappers>
+</project>

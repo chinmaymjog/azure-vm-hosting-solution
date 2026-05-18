@@ -1,0 +1,83 @@
+---
+- name: Deleting HTML Site
+  hosts: "{{ web_environment }}"
+  become: true
+  vars_files:
+    - var_files/web_vars.yml
+
+  tasks:
+    - name: Validate FQDN format
+      delegate_to: localhost
+      run_once: true
+      become: false
+      ansible.builtin.assert:
+        that:
+          - site_url is defined and site_url | length > 0
+          - site_url is match('^[a-zA-Z0-9][-a-zA-Z0-9.]*\\.[a-zA-Z]{2,11}$')
+        fail_msg: "🚨 Invalid FQDN '{{ site_url | default('') }}'! Domain must be a valid FQDN (e.g. example.com) without protocol prefixes (http://) or trailing slashes (/)."
+
+    - name: Checking if config file exist in sites-available
+      ansible.builtin.stat:
+        path: "{{ APACHE2_AVAILABLE }}/{{ site_url }}.conf"
+      register: sites_available
+      when:
+        - site_url != ""
+
+    - name: Progress
+      ansible.builtin.debug:
+        msg:
+          - "{{ site_url }} does not exist"
+          - "Other tasks will be skipped"
+      when: sites_available.stat.exists == False
+
+    - name: Disable site
+      ansible.builtin.shell: a2dissite {{ site_url }}
+      when: sites_available.stat.exists == True
+
+    - name: Deleting site VHOST config
+      ansible.builtin.file:
+        path: "{{ APACHE2_AVAILABLE }}/{{ site_url }}.conf"
+        state: absent
+      when: sites_available.stat.exists == True
+
+    - name: Read site metadata from NetApp volume
+      ansible.builtin.shell: |
+        cat {{ DOC_ROOT }}/metadata/{{ site_url }}.json
+      register: site_metadata_content
+      failed_when: false
+      when: sites_available.stat.exists == True
+
+    - name: Set username from dynamic JSON metadata
+      ansible.builtin.set_fact:
+        username_from_json: "{{ (site_metadata_content.stdout | from_json).site_user if site_metadata_content.rc == 0 else '' }}"
+      when:
+        - sites_available.stat.exists == True
+        - site_metadata_content.rc == 0
+
+    - name: Deleting site user
+      vars:
+        site_user: "{{ username_from_json | default('') }}"
+      ansible.builtin.user:
+        name: "{{ site_user }}"
+        state: absent
+      when:
+        - sites_available.stat.exists == True
+        - site_user != ""
+
+    - name: Restart apache2
+      ansible.builtin.systemd:
+        name: apache2
+        state: restarted
+      when: sites_available.stat.exists == True
+
+    - name: Deleting site metadata from persistent NetApp store
+      ansible.builtin.file:
+        path: "{{ DOC_ROOT }}/metadata/{{ site_url }}.json"
+        state: absent
+      when: sites_available.stat.exists == True
+
+    - name: Output
+      ansible.builtin.debug:
+        msg:
+          - "HTML site {{ site_url }} has been deleted successfully"
+      when: sites_available.stat.exists == True

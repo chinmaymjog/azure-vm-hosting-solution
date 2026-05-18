@@ -1,0 +1,60 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<project>
+  <actions/>
+  <description><![CDATA[<div style="background-color: #f7f9fa; border-left: 5px solid #6200ea; padding: 12px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); font-family: -apple-system, BlinkMacSystemFont, sans-serif; color: #333;">
+  <span style="font-size: 1.2em; font-weight: 600; color: #6200ea;">📋 Site Catalog</span>
+  <p style="margin: 6px 0 0 0; line-height: 1.5; font-size: 0.95em;">Scans and lists all active, available, and disabled websites on the target web server.</p>
+</div>]]></description>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <hudson.model.ParametersDefinitionProperty>
+      <parameterDefinitions>
+        <org.biouno.unochoice.ChoiceParameter plugin="uno-choice@2.8.8">
+          <name>web_environment</name>
+          <randomName>choice-parameter-187034005816497</randomName>
+          <visibleItemCount>1</visibleItemCount>
+          <script class="org.biouno.unochoice.model.GroovyScript">
+            <secureScript plugin="script-security@1385.v7d2d9ec4d909">
+              <script>return[&apos;preproduction&apos;, &apos;production&apos;]</script>
+              <sandbox>true</sandbox>
+            </secureScript>
+            <secureFallbackScript plugin="script-security@1385.v7d2d9ec4d909">
+              <script></script>
+              <sandbox>true</sandbox>
+            </secureFallbackScript>
+          </script>
+          <projectName>site_list</projectName>
+          <projectFullName>Hosting_Management_Portal/site_list</projectFullName>
+          <choiceType>PT_SINGLE_SELECT</choiceType>
+          <filterable>false</filterable>
+          <filterLength>1</filterLength>
+        </org.biouno.unochoice.ChoiceParameter>
+      </parameterDefinitions>
+    </hudson.model.ParametersDefinitionProperty>
+  </properties>
+  <scm class="hudson.scm.NullSCM"/>
+  <canRoam>true</canRoam>
+  <disabled>false</disabled>
+  <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
+  <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+  <triggers/>
+  <concurrentBuild>false</concurrentBuild>
+  <builders>
+    <hudson.tasks.Shell>
+      <command>ansible-playbook -u &quot;$ANSIBLE_USER&quot; --private-key &quot;$ANSIBLE_PVT_KEY&quot; --extra-vars &quot;web_environment=${web_environment}&quot; /etc/ansible/playbooks/site_list.yml</command>
+      <configuredLocalRules/>
+    </hudson.tasks.Shell>
+  </builders>
+  <publishers/>
+  <buildWrappers>
+    <org.jenkinsci.plugins.credentialsbinding.impl.SecretBuildWrapper plugin="credentials-binding@702.vfe613e537e88">
+      <bindings>
+        <org.jenkinsci.plugins.credentialsbinding.impl.SSHUserPrivateKeyBinding>
+          <credentialsId>ansible_ssh_key</credentialsId>
+          <keyFileVariable>ANSIBLE_PVT_KEY</keyFileVariable>
+          <usernameVariable>ANSIBLE_USER</usernameVariable>
+        </org.jenkinsci.plugins.credentialsbinding.impl.SSHUserPrivateKeyBinding>
+      </bindings>
+    </org.jenkinsci.plugins.credentialsbinding.impl.SecretBuildWrapper>
+  </buildWrappers>
+</project>

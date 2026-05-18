@@ -1,0 +1,33 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<com.cloudbees.hudson.plugins.folder.Folder plugin="cloudbees-folder@6.1036.vb_94fd035b_287">
+  <actions/>
+  <description><![CDATA[<div style="background-color: #f7f9fa; border-left: 5px solid #0056b3; padding: 15px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #333;">
+  <h3 style="margin-top: 0; color: #0056b3; font-weight: 600;">🌐 Hosting Management Portal</h3>
+  <p style="margin-bottom: 8px; line-height: 1.5;">This portal orchestrates dynamic web-hosting operations across the preproduction and production spoke server groups.</p>
+  <div style="font-size: 0.95em; color: #555; line-height: 1.6;">
+    <b>📁 Active Operations:</b>
+    <ul style="margin: 5px 0 0 15px; padding: 0;">
+      <li><b>Site Provisioning:</b> Idempotent web and database stack onboarding.</li>
+      <li><b>HTTP Authentication:</b> Dynamic access restriction management.</li>
+      <li><b>SSL Certificate Operations:</b> Automated CSR and PFX packaging for TLS.</li>
+      <li><b>Database Operations:</b> Logical transaction-safe dumps.</li>
+    </ul>
+  </div>
+</div>]]></description>
+  <displayName>Hosting Management Portal</displayName>
+  <properties/>
+  <folderViews class="com.cloudbees.hudson.plugins.folder.views.DefaultFolderViewHolder">
+    <views>
+      <hudson.model.AllView>
+        <owner class="com.cloudbees.hudson.plugins.folder.Folder" reference="../../../.."/>
+        <name>All</name>
+        <filterExecutors>false</filterExecutors>
+        <filterQueue>false</filterQueue>
+        <properties class="hudson.model.View$PropertyList"/>
+      </hudson.model.AllView>
+    </views>
+    <tabBar class="hudson.views.DefaultViewsTabBar"/>
+  </folderViews>
+  <healthMetrics/>
+  <icon class="com.cloudbees.hudson.plugins.folder.icons.StockFolderIcon"/>
+</com.cloudbees.hudson.plugins.folder.Folder>

@@ -1,0 +1,22 @@
+version: '3.8'
+services:
+  jenkins:
+    build: .
+    container_name: preconfigured-jenkins
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    environment:
+      # In production on Azure, this could be pulled from Key Vault
+      # and passed into the docker run command by Terraform/cloud-init
+      - JENKINS_ADMIN_PASSWORD=SecureAdminPassword2026!
+      # We pipe this directly into the container from the Jumpbox memory
+      - SSH_PRIVATE_KEY=${SSH_PRIVATE_KEY}
+    volumes:
+      - jenkins_data:/var/jenkins_home
+      # Mount the synced ansible directory directly into the container
+      - ../ansible:/etc/ansible
+    restart: unless-stopped
+
+volumes:
+  jenkins_data:

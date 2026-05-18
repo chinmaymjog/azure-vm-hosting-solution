@@ -1,0 +1,147 @@
+---
+- name: Configure newly added webserver
+  hosts: "all:!local"
+  become: true
+  vars_files:
+    - var_files/web_vars.yml
+
+  tasks:
+    - name: Update all packages
+      ansible.builtin.apt:
+        update_cache: yes
+
+    - name: Install basic packages
+      ansible.builtin.apt:
+        name:
+          - vim
+          - zip
+          - unzip
+          - wget
+          - curl
+          - libcurl4
+          - libxml2
+          - libssh2-1
+          - openssl
+          - apache2
+          - libapache2-mod-security2
+          - libapache2-mod-fcgid
+          - imagemagick
+          - language-pack-en
+          - locales
+          - python3-passlib
+        state: latest
+
+    - name: Enable necessary Apache2 modules
+      ansible.builtin.shell: a2enmod rewrite ssl security2 fcgid proxy_http proxy_fcgi
+
+    - name: Setting Apache2 directories
+      ansible.builtin.file:
+        path: "{{ APACHE2_CONF }}/{{ item }}"
+        state: directory
+      loop:
+        - auth-available
+        - auth-enabled
+        - auth-files
+
+    - name: Setting Apache2 IncludeOptional
+      ansible.builtin.lineinfile:
+        path: "{{ APACHE2_CONF }}/apache2.conf"
+        line: IncludeOptional {{ item }}/*.conf
+      loop:
+        - auth-enabled
+
+    - name: Setting up web_users group
+      ansible.builtin.group:
+        name: web_users
+        state: present
+
+    - name: Adding www-data to web_users group
+      ansible.builtin.user:
+        name: www-data
+        groups: web_users
+        append: true
+
+    - name: Setting GID on DOC_ROOT directory
+      ansible.builtin.file:
+        path: DOC_ROOT
+        group: web_users
+        mode: u=rwx,g=rwx,o=rx,g+s
+        recurse: true
+
+    - name: Deploy default Apache index page
+      ansible.builtin.copy:
+        src: templates/index.html
+        dest: /var/www/html/index.html
+
+    - name: Deploy default Apache2 virtual host configuration
+      ansible.builtin.copy:
+        src: templates/00-default-vhost.conf
+        dest: "{{ APACHE2_ENABLED }}/00-default-vhost.conf"
+
+    - name: Start Apache2 service
+      ansible.builtin.systemd:
+        name: apache2
+        enabled: true
+        state: started
+
+    - name: Add the main PPA for supported PHP versions
+      ansible.builtin.apt_repository:
+        repo: ppa:ondrej/php
+
+    - name: Add PPA for Apache 2.x
+      ansible.builtin.apt_repository:
+        repo: ppa:ondrej/apache2
+
+    - name: Run command to find installed PHP versions
+      ansible.builtin.shell: |
+        dpkg -l | grep -E '^ii\s+php[0-9.]+-fpm' | awk '{print $2}' | sed 's/-fpm//'
+      register: php_installed_list
+      changed_when: false
+
+    - name: Save PHP versions to local Ansible directory
+      delegate_to: localhost
+      run_once: true
+      become: false
+      ansible.builtin.copy:
+        content: "{{ php_installed_list.stdout_lines | to_json }}"
+        dest: /etc/ansible/installed_php_versions.json
+        mode: "0644"
+
+    - name: Ensure logrotate is installed
+      ansible.builtin.apt:
+        name: logrotate
+        state: present
+
+    - name: Deploy logrotate configuration for custom site logs
+      ansible.builtin.copy:
+        content: |
+          /netappwebsites/*/logs/*.log {
+              daily
+              missingok
+              rotate 14
+              compress
+              delaycompress
+              notifempty
+              create 0640 root web_users
+              sharedscripts
+              postrotate
+                  /usr/sbin/apachectl graceful > /dev/null
+              endscript
+          }
+
+          /netappwebsites/*/php-fpm-logs/*.log {
+              daily
+              missingok
+              rotate 14
+              compress
+              delaycompress
+              notifempty
+              sharedscripts
+              postrotate
+                  systemctl reload 'php*-fpm' > /dev/null 2>&1 || true
+              endscript
+          }
+        dest: /etc/logrotate.d/hosting-platform
+        owner: root
+        group: root
+        mode: "0644"
