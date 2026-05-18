@@ -67,6 +67,32 @@
         - site_type_from_json == 'php'
         - php_version_from_json != '' and php_version_from_json != 'NA'
 
+    - name: Parse and Update Metadata Facts
+      ansible.builtin.set_fact:
+        updated_metadata: >-
+          {{
+            (hostvars['localhost']['site_metadata_content'].stdout | from_json) | combine({
+              'status': 'enabled'
+            })
+          }}
+      when:
+        - site_url != ""
+        - sites_available.stat.exists
+        - hostvars['localhost']['site_metadata_content'].rc == 0
+
+    - name: Save updated metadata back to persistent NFS store
+      delegate_to: localhost
+      run_once: true
+      become: false
+      ansible.builtin.copy:
+        content: "{{ updated_metadata | to_nice_json }}"
+        dest: "{{ SITE_LIST_PATH }}/{{ site_url }}.json"
+        mode: "0644"
+      when:
+        - site_url != ""
+        - sites_available.stat.exists
+        - hostvars['localhost']['site_metadata_content'].rc == 0
+
     - name: Restart apache2
       ansible.builtin.systemd:
         name: apache2

@@ -15,13 +15,23 @@
           <randomName>choice-parameter-site-url-enable</randomName>
           <visibleItemCount>1</visibleItemCount>
           <script class="org.biouno.unochoice.model.GroovyScript">
-            <secureScript plugin="script-security@1385.v7d2d9ec4d909">
               <script>
+import groovy.json.JsonSlurper
 def folder = new File(&quot;/backups/sites&quot;)
 if (folder.exists() &amp;&amp; folder.isDirectory()) {
     def files = folder.listFiles({ file -&gt; file.name.endsWith(&quot;.json&quot;) } as FileFilter)
     if (files) {
-        return files.collect { it.name.minus(&quot;.json&quot;) }.sort()
+        def slurper = new JsonSlurper()
+        def sites = []
+        files.each { file -&gt;
+            try {
+                def metadata = slurper.parse(file)
+                if (metadata.status == &quot;disabled&quot;) {
+                    sites.add(file.name.minus(&quot;.json&quot;))
+                }
+            } catch (e) {}
+        }
+        return sites ? sites.sort() : [&quot;No disabled sites found&quot;]
     }
 }
 return [&quot;No active sites found&quot;]

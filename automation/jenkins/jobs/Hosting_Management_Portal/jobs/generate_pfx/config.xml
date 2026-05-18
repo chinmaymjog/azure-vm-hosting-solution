@@ -9,11 +9,47 @@
   <properties>
     <hudson.model.ParametersDefinitionProperty>
       <parameterDefinitions>
-        <hudson.model.StringParameterDefinition>
+        <org.biouno.unochoice.ChoiceParameter plugin="uno-choice@2.8.8">
           <name>commonName</name>
-          <description>Enter the Fully Qualified Domain Name (FQDN) used for the CSR (e.g. example.com).</description>
-          <trim>true</trim>
-        </hudson.model.StringParameterDefinition>
+          <description>Select the Fully Qualified Domain Name (FQDN) used for the CSR. (Auto-populated from metadata registry)</description>
+          <randomName>choice-parameter-commonName-pfx</randomName>
+          <visibleItemCount>1</visibleItemCount>
+          <script class="org.biouno.unochoice.model.GroovyScript">
+            <secureScript plugin="script-security@1385.v7d2d9ec4d909">
+              <script>
+import groovy.json.JsonSlurper
+def folder = new File(&quot;/backups/sites&quot;)
+if (folder.exists() &amp;&amp; folder.isDirectory()) {
+    def files = folder.listFiles({ file -&gt; file.name.endsWith(&quot;.json&quot;) } as FileFilter)
+    if (files) {
+        def slurper = new JsonSlurper()
+        def sites = []
+        files.each { file -&gt;
+            try {
+                def metadata = slurper.parse(file)
+                if (metadata.status == &quot;enabled&quot;) {
+                    sites.add(file.name.minus(&quot;.json&quot;))
+                }
+            } catch (e) {}
+        }
+        return sites ? sites.sort() : [&quot;No active sites found&quot;]
+    }
+}
+return [&quot;No active sites found&quot;]
+              </script>
+              <sandbox>true</sandbox>
+            </secureScript>
+            <secureFallbackScript plugin="script-security@1385.v7d2d9ec4d909">
+              <script>return [&apos;error&apos;]</script>
+              <sandbox>true</sandbox>
+            </secureFallbackScript>
+          </script>
+          <projectName>generate_pfx</projectName>
+          <projectFullName>Hosting_Management_Portal/generate_pfx</projectFullName>
+          <choiceType>PT_SINGLE_SELECT</choiceType>
+          <filterable>true</filterable>
+          <filterLength>1</filterLength>
+        </org.biouno.unochoice.ChoiceParameter>
         <org.biouno.unochoice.CascadeChoiceParameter plugin="uno-choice@2.8.9">
           <name>private_key_file</name>
           <randomName>choice-parameter-2797465434154508</randomName>

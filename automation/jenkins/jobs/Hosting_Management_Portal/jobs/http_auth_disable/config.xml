@@ -9,11 +9,47 @@
   <properties>
     <hudson.model.ParametersDefinitionProperty>
       <parameterDefinitions>
-        <hudson.model.StringParameterDefinition>
+        <org.biouno.unochoice.ChoiceParameter plugin="uno-choice@2.8.8">
           <name>site_url</name>
-          <description>Fully Qualified Domain Name (FQDN) of the website to remove HTTP basic authentication from (e.g. example.com). Do not include http://, https://, or a trailing slash.</description>
-          <trim>false</trim>
-        </hudson.model.StringParameterDefinition>
+          <description>Select the Fully Qualified Domain Name (FQDN) of the website. (Auto-populated from metadata registry)</description>
+          <randomName>choice-parameter-site-url-http-auth-disable</randomName>
+          <visibleItemCount>1</visibleItemCount>
+          <script class="org.biouno.unochoice.model.GroovyScript">
+            <secureScript plugin="script-security@1385.v7d2d9ec4d909">
+              <script>
+import groovy.json.JsonSlurper
+def folder = new File(&quot;/backups/sites&quot;)
+if (folder.exists() &amp;&amp; folder.isDirectory()) {
+    def files = folder.listFiles({ file -&gt; file.name.endsWith(&quot;.json&quot;) } as FileFilter)
+    if (files) {
+        def slurper = new JsonSlurper()
+        def sites = []
+        files.each { file -&gt;
+            try {
+                def metadata = slurper.parse(file)
+                if (metadata.auth_status == &quot;enabled&quot;) {
+                    sites.add(file.name.minus(&quot;.json&quot;))
+                }
+            } catch (e) {}
+        }
+        return sites ? sites.sort() : [&quot;No authenticated sites found&quot;]
+    }
+}
+return [&quot;No active sites found&quot;]
+              </script>
+              <sandbox>true</sandbox>
+            </secureScript>
+            <secureFallbackScript plugin="script-security@1385.v7d2d9ec4d909">
+              <script>return [&apos;error&apos;]</script>
+              <sandbox>true</sandbox>
+            </secureFallbackScript>
+          </script>
+          <projectName>http_auth_disable</projectName>
+          <projectFullName>Hosting_Management_Portal/http_auth_disable</projectFullName>
+          <choiceType>PT_SINGLE_SELECT</choiceType>
+          <filterable>true</filterable>
+          <filterLength>1</filterLength>
+        </org.biouno.unochoice.ChoiceParameter>
         <org.biouno.unochoice.ChoiceParameter plugin="uno-choice@2.8.8">
           <name>web_environment</name>
           <randomName>choice-parameter-183819687085462</randomName>

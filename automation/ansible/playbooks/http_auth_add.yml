@@ -23,6 +23,7 @@
         username_from_json: "{{ (hostvars['localhost']['site_metadata_content'].stdout | from_json).site_user if hostvars['localhost']['site_metadata_content'].rc == 0 else '' }}"
         site_type_from_json: "{{ (hostvars['localhost']['site_metadata_content'].stdout | from_json).site_type if hostvars['localhost']['site_metadata_content'].rc == 0 else 'html' }}"
         php_version_from_json: "{{ (hostvars['localhost']['site_metadata_content'].stdout | from_json).php_version | default('') }}"
+        status_from_json: "{{ (hostvars['localhost']['site_metadata_content'].stdout | from_json).status | default('enabled') }}"
         created_at_from_json: "{{ (hostvars['localhost']['site_metadata_content'].stdout | from_json).created_at if hostvars['localhost']['site_metadata_content'].rc == 0 else '' }}"
       when:
         - site_url != ""
@@ -113,6 +114,8 @@
           site_user: "{{ username_from_json }}"
           site_type: "{{ site_type_from_json }}"
           php_version: "{{ php_version_from_json if php_version_from_json != '' else omit }}"
+          status: "{{ status_from_json }}"
+          auth_status: "enabled"
           created_at: "{{ created_at_from_json }}"
           http_auth_user: "HTTP_{{ username_from_json | upper }}"
           http_auth_pass: "{{ site_auth_pass.stdout }}"
