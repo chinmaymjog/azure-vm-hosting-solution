@@ -134,6 +134,26 @@ Since we haven't configured public DNS yet, you can test your site by adding an 
 
 ---
 
+## ⚙️ Environment Configuration & Dynamic Inventory
+
+The automation plane separates dynamic, high-churn network data from stable, static infrastructure registries. 
+
+### 📡 Dynamic Inventory (`hosts`)
+* **Purpose:** Maps Ansible hosts to target VM private IPs.
+* **Operational Cycle:** **Dynamic & High-Churn**. VM IPs can shift during autoscaling, resizing, or spoke updates.
+* **How it is populated:** Handled entirely by the platform automation. Running `make jenkins-sync` automatically queries the active spoke states via Terraform (`terraform output -json vm_private_ips`), structures them by environment group (`[preproduction]`, `[production]`), and dynamically compiles `automation/ansible/hosts`.
+
+### 📂 Database Configuration Map (`database_vars.yml`)
+* **Purpose:** Maps playbooks to target database nodes, administrative users, and Azure Key Vault secrets.
+* **Operational Cycle:** **Static & Stable**. The SQL servers and Key Vault are persistent, stable architectural backbones.
+* **How it is populated:** 
+  1. **Deploy Hub:** Run `make hub-deploy`, which outputs the globally unique Key Vault name (e.g., `kv-myhostingnew-5e12c6a8`).
+  2. **Deploy Spokes:** Run `make infra-preprod` / `make infra-prod`, which deploy the MySQL servers and output their stable FQDNs.
+  3. **Bootstrap Mapping:** Copy these stable FQDNs and the Key Vault name into `automation/ansible/playbooks/var_files/database_vars.yml` once during the initial bootstrapping of your environment.
+  4. **Zero-Trust Security:** Absolutely no passwords or secrets are written here. Playbooks dynamically query Key Vault at runtime using the host's System-Assigned Managed Identity.
+
+---
+
 ## 💾 Storage Layout Reference
 - **`/netappwebsites`**: (NetApp NFS) High-performance volume for application code.
 - **`/backups`**: (Azure Files NFS) Centralized repository in the Hub.
