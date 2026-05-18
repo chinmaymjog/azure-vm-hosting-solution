@@ -137,6 +137,8 @@
             "site_user": "{{ site_user }}",
             "site_type": "html",
             "php_version": "NA",
+            "status": "enabled",
+            "auth_status": "none",
             "created_at": "{{ ansible_date_time.iso8601 }}"
           }
         dest: "{{ SITE_LIST_PATH }}/{{ effective_site_url }}.json"

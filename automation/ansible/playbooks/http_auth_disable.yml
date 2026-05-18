@@ -26,12 +26,51 @@
         state: absent
       when: auth_enabled.stat.exists == True
 
-    - name: Update vhost conf to enable HTTP Auth
+    - name: Update vhost conf to disable HTTP Auth
       ansible.builtin.lineinfile:
         path: "{{ APACHE2_AVAILABLE }}/{{ site_url }}.conf"
         search_string: "# Require all granted"
         line: "Require all granted"
       when: auth_enabled.stat.exists == True
+
+    - name: Read site metadata from persistent NFS store
+      delegate_to: localhost
+      run_once: true
+      become: false
+      ansible.builtin.command:
+        cmd: "cat {{ SITE_LIST_PATH }}/{{ site_url }}.json"
+      register: site_metadata_content
+      failed_when: false
+      changed_when: false
+      when:
+        - site_url != ""
+        - auth_enabled.stat.exists == True
+
+    - name: Parse and Update Metadata Facts
+      ansible.builtin.set_fact:
+        updated_metadata: >-
+          {{
+            (hostvars['localhost']['site_metadata_content'].stdout | from_json) | combine({
+              'auth_status': 'disabled'
+            })
+          }}
+      when:
+        - site_url != ""
+        - auth_enabled.stat.exists == True
+        - hostvars['localhost']['site_metadata_content'].rc == 0
+
+    - name: Save updated metadata back to persistent NFS store
+      delegate_to: localhost
+      run_once: true
+      become: false
+      ansible.builtin.copy:
+        content: "{{ updated_metadata | to_nice_json }}"
+        dest: "{{ SITE_LIST_PATH }}/{{ site_url }}.json"
+        mode: "0644"
+      when:
+        - site_url != ""
+        - auth_enabled.stat.exists == True
+        - hostvars['localhost']['site_metadata_content'].rc == 0
 
     - name: Restart apache2
       ansible.builtin.systemd:
