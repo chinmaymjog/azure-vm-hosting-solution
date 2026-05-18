@@ -1,0 +1,48 @@
+---
+- name: upload certificate & generate pfx
+  hosts: localhost
+  vars_files:
+    - var_files/web_vars.yml
+    - var_files/azure_creds.yml
+
+  tasks:
+    - name: Validate commonName FQDN
+      ansible.builtin.assert:
+        that:
+          - commonName is defined and commonName | length > 0
+          - commonName is match('^[a-zA-Z0-9][-a-zA-Z0-9.]*\\.[a-zA-Z]{2,11}$')
+        fail_msg: "🚨 Invalid commonName FQDN '{{ commonName | default('') }}'!"
+
+    - name: Create directory structure if does not exist
+      ansible.builtin.file:
+        path: "{{ CERT_PATH }}/{{ commonName }}"
+        state: directory
+
+    - name: Generate pfx
+      community.crypto.openssl_pkcs12:
+        path: "{{ CERT_PATH }}/{{ commonName }}/{{ commonName }}_{{ csrDate }}.pfx"
+        friendly_name: "{{ commonName }}_{{ csrDate }}"
+        privatekey_path: "{{ CERT_PATH }}/{{ commonName }}/{{ private_key_file }}"
+        certificate_path: "{{ CERT_PATH }}/{{ commonName }}/{{ commonName }}_{{ csrDate }}.crt.pem"
+        other_certificates: "{{ CERT_PATH }}/{{ commonName }}/{{ commonName }}_{{ csrDate }}.ca.pem"
+        state: present
+
+    - name: Azure CLI login using service principal
+      ansible.builtin.shell: |
+        az login --service-principal \
+          --username "{{ azure_credentials.client_id }}" \
+          --password "{{ azure_credentials.client_secret }}" \
+          --tenant "{{ azure_credentials.tenant_id }}"
+      args:
+        executable: /bin/bash
+
+    - name: Upload PFX certificate to Azure Key Vault (Workaround for az cli python 3.12 bug)
+      ansible.builtin.shell: |
+        PFX_B64=$(base64 -w 0 "{{ CERT_PATH }}/{{ commonName }}/{{ commonName }}_{{ csrDate }}.pfx")
+        az rest --method post \
+          --uri "https://{{ azure_keyvault_uri }}.vault.azure.net/certificates/{{ azure_keyvault_cert_name }}/import?api-version=7.4" \
+          --resource "https://vault.azure.net" \
+          --body "{\"value\": \"$PFX_B64\"}"
+      when: azure_keyvault_uri is defined
+      args:
+        executable: /bin/bash

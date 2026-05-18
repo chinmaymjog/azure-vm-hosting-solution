@@ -1,0 +1,47 @@
+---
+- name: Enable HTTP Auth
+  hosts: "{{ web_environment }}"
+  become: true
+  vars_files:
+    - var_files/web_vars.yml
+
+  tasks:
+    - name: Checking if config file exist in auth-available
+      ansible.builtin.stat:
+        path: "{{ AUTH_AVAILABLE }}/{{ site_url }}.conf"
+      register: auth_available
+      when:
+        - site_url != ""
+
+    - name: Checking if config file exist in auth-enabled
+      ansible.builtin.stat:
+        path: "{{ AUTH_ENABLED }}/{{ site_url }}.conf"
+      register: auth_enabled
+      when: auth_available.stat.exists == True
+
+    - name: Progress
+      ansible.builtin.debug:
+        msg:
+          - "Auth for {{ site_url }} already enabled"
+          - "Other tasks will be skipped"
+      when: auth_enabled.stat.exists == True
+
+    - name: Add symlink in auth-enabled
+      ansible.builtin.file:
+        src: "{{ AUTH_AVAILABLE }}/{{ site_url }}.conf"
+        dest: "{{ AUTH_ENABLED }}/{{ site_url }}.conf"
+        state: link
+      when: auth_enabled.stat.exists == False
+
+    - name: Update vhost conf to enable HTTP Auth
+      ansible.builtin.lineinfile:
+        path: "{{ APACHE2_AVAILABLE }}/{{ site_url }}.conf"
+        search_string: "Require all granted"
+        line: "# Require all granted"
+      when: auth_enabled.stat.exists == False
+
+    - name: Restart apache2
+      ansible.builtin.systemd:
+        name: apache2
+        state: restarted
+      when: auth_enabled.stat.exists == False

@@ -1,0 +1,283 @@
+---
+- name: Creating New PHP Site
+  hosts: preproduction, production
+  become: true
+  vars_files:
+    - var_files/web_vars.yml
+    - var_files/database_vars.yml
+
+  tasks:
+    - name: Validate FQDN format
+      delegate_to: localhost
+      run_once: true
+      become: false
+      ansible.builtin.assert:
+        that:
+          - site_url is defined and site_url | length > 0
+          - site_url is match('^[a-zA-Z0-9][-a-zA-Z0-9.]*\\.[a-zA-Z]{2,11}$')
+        fail_msg: "🚨 Invalid FQDN '{{ site_url | default('') }}'! Domain must be a valid FQDN (e.g. example.com) without protocol prefixes (http://) or trailing slashes (/)."
+
+    - name: Set host environment variable
+      ansible.builtin.set_fact:
+        host_env: "{{ 'preproduction' if 'preproduction' in group_names else 'production' }}"
+        effective_site_url: "{{ 'preprod-' + site_url if 'preproduction' in group_names else site_url }}"
+
+    - name: Set environment-specific database variables
+      set_fact:
+        db_host: "{{ lookup('vars', host_env).db_host }}"
+        db_port: "{{ lookup('vars', host_env).db_port | default(3306) }}"
+        db_user: "{{ lookup('vars', host_env).db_user }}"
+        keyvault_name: "{{ lookup('vars', host_env).keyvault_name }}"
+        keyvault_secret: "{{ lookup('vars', host_env).keyvault_secret }}"
+
+    - name: Fetch Azure Managed Identity Token
+      delegate_to: localhost
+      become: false
+      ansible.builtin.uri:
+        url: "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://vault.azure.net"
+        headers:
+          Metadata: "true"
+        return_content: true
+      register: token_response
+
+    - name: Fetch MySQL Admin Password from Azure Key Vault
+      delegate_to: localhost
+      become: false
+      ansible.builtin.uri:
+        url: "https://{{ keyvault_name }}.vault.azure.net/secrets/{{ keyvault_secret }}?api-version=7.0"
+        headers:
+          Authorization: "Bearer {{ (token_response.content | from_json).access_token }}"
+        return_content: true
+      register: secret_response
+
+    - name: Set DB root password fact
+      set_fact:
+        db_pass: "{{ (secret_response.content | from_json).value }}"
+
+    - name: Check if Apache config file exists in sites-available
+      ansible.builtin.stat:
+        path: "{{ APACHE2_AVAILABLE }}/{{ effective_site_url }}.conf"
+      register: sites_available
+
+    - name: Progress
+      ansible.builtin.debug:
+        msg:
+          - "{{ effective_site_url }} already exist"
+          - "Other tasks will be skipped"
+      when: sites_available.stat.exists == True
+
+    - name: Split PHP version string
+      set_fact:
+        php_name: "{{ php_version | regex_replace('([a-zA-Z]+)([0-9.]+)', '\\1') }}"
+        php_number: "{{ php_version | regex_replace('([a-zA-Z]+)([0-9.]+)', '\\2') }}"
+
+    - name: Building site username
+      delegate_to: localhost
+      delegate_facts: true
+      run_once: true
+      become: false
+      ansible.builtin.shell: |
+        rndm=$(( 10000 + $RANDOM % 90000 ))
+        user=$(echo {{ site_url }} | tr -d '.,-' | sed -e s/preprod//g | cut -c 1-10)_$rndm
+        echo $user
+      register: username
+      args:
+        executable: /bin/bash
+      when: sites_available.stat.exists == False
+
+    - name: Building site user password
+      delegate_to: localhost
+      delegate_facts: true
+      run_once: true
+      become: false
+      ansible.builtin.shell: |
+        pass=$(openssl rand -hex 12)
+        echo $pass
+      register: password
+      args:
+        executable: /bin/bash
+      when: sites_available.stat.exists == False
+
+    - name: Creating site user
+      vars:
+        site_user: "{{ username.stdout }}"
+        site_user_pass: "{{ password.stdout }}"
+      ansible.builtin.user:
+        name: "{{ site_user }}"
+        password: "{{ site_user_pass }}"
+        groups: web_users
+        create_home: false
+      when: sites_available.stat.exists == False
+
+    - name: Create site directories
+      vars:
+        site_user: "{{ username.stdout }}"
+      ansible.builtin.file:
+        path: "{{ DOC_ROOT }}/{{ site_user }}/{{ item.path }}"
+        state: directory
+        mode: "{{ item.mode }}"
+        owner: "{{ item.owner }}"
+        group: web_users
+      loop:
+        - { path: "web", mode: "0775", owner: "{{ site_user }}" }
+        - { path: "logs", mode: "0755", owner: "root" }
+        - { path: "php-fpm-logs", mode: "0755", owner: "{{ site_user }}" }
+        - { path: "sessions", mode: "0775", owner: "{{ site_user }}" }
+      when: sites_available.stat.exists == False
+
+    - name: Touch PHP log files
+      vars:
+        site_user: "{{ username.stdout }}"
+      ansible.builtin.file:
+        path: "{{ DOC_ROOT }}/{{ site_user }}/php-fpm-logs/{{ site_user }}-php-{{ item }}.log"
+        state: touch
+        owner: "{{ site_user }}"
+        group: web_users
+        mode: "0644"
+      loop:
+        - slow
+        - error
+      when: sites_available.stat.exists == False
+
+    - name: Adding default index page
+      vars:
+        site_user: "{{ username.stdout }}"
+      ansible.builtin.template:
+        src: ../templates/welcome.html.j2
+        dest: "{{ DOC_ROOT }}/{{ site_user }}/web/index.html"
+        mode: "644"
+        owner: "{{ site_user }}"
+      when: sites_available.stat.exists == False
+
+    - name: Create secure .env file outside public root
+      vars:
+        site_user: "{{ username.stdout }}"
+        site_user_pass: "{{ password.stdout }}"
+      ansible.builtin.copy:
+        content: |
+          # 🔒 Secure Database Credentials
+          # This file is automatically generated by the onboarding stack.
+          # It is stored outside the public web root (web/) to prevent public exposure.
+          DB_CONNECTION=mysql
+          DB_HOST={{ db_host }}
+          DB_PORT={{ db_port }}
+          DB_DATABASE={{ site_user }}
+          DB_USERNAME={{ site_user }}
+          DB_PASSWORD={{ site_user_pass }}
+        dest: "{{ DOC_ROOT }}/{{ site_user }}/.env"
+        owner: "{{ site_user }}"
+        group: web_users
+        mode: "0600"
+      when: sites_available.stat.exists == False
+
+    - name: Create Apache virtual host configuration
+      vars:
+        site_user: "{{ username.stdout }}"
+      ansible.builtin.template:
+        src: ../templates/vhost_php.j2
+        dest: "{{ APACHE2_AVAILABLE }}/{{ effective_site_url }}.conf"
+        mode: "644"
+      when: sites_available.stat.exists == False
+
+    - name: Create PHP-FPM pool configuration
+      vars:
+        site_user: "{{ username.stdout }}"
+        site_group: "{{ username.stdout }}"
+      ansible.builtin.template:
+        src: templates/php_fpm.j2
+        dest: "/etc/php/{{ php_number }}/fpm/pool.d/{{ effective_site_url }}.conf"
+        mode: "644"
+      when: sites_available.stat.exists == False
+
+    - name: Start PHP-FPM service for {{ effective_site_url }}
+      ansible.builtin.systemd:
+        name: "{{ php_version }}-fpm@{{ effective_site_url }}"
+        enabled: true
+        state: started
+      when: sites_available.stat.exists == False
+
+    - name: Enable Apache site configuration
+      ansible.builtin.shell: a2ensite {{ effective_site_url }}
+      when: sites_available.stat.exists == False
+
+    - name: Restart Apache2 service
+      ansible.builtin.systemd:
+        name: apache2
+        state: restarted
+
+    - name: Ensure metadata registry directory exists
+      ansible.builtin.file:
+        path: "{{ DOC_ROOT }}/metadata"
+        state: directory
+        mode: "0775"
+        group: web_users
+      run_once: true
+
+    - name: Write site metadata to persistent NetApp store
+      vars:
+        site_user: "{{ username.stdout }}"
+      ansible.builtin.copy:
+        content: |
+          {
+            "site_url": "{{ effective_site_url }}",
+            "site_user": "{{ site_user }}",
+            "site_type": "php",
+            "php_version": "{{ php_version }}",
+            "created_at": "{{ ansible_date_time.iso8601 }}"
+          }
+        dest: "{{ DOC_ROOT }}/metadata/{{ effective_site_url }}.json"
+        mode: "0644"
+      when: sites_available.stat.exists == False
+
+    - name: Create MySQL database
+      delegate_to: localhost
+      delegate_facts: true
+      run_once: true
+      become: false
+      vars:
+        site_user: "{{ username.stdout }}"
+      community.mysql.mysql_db:
+        login_host: "{{ db_host }}"
+        login_port: "{{ db_port }}"
+        login_user: "{{ db_user }}"
+        login_password: "{{ db_pass }}"
+        name: "{{ site_user }}"
+        state: present
+      when: 
+        - sites_available.stat.exists == False
+
+    - name: Create MySQL database user
+      delegate_to: localhost
+      delegate_facts: true
+      run_once: true
+      become: false
+      vars:
+        site_user: "{{ username.stdout }}"
+        site_user_pass: "{{ password.stdout }}"
+      community.mysql.mysql_user:
+        login_host: "{{ db_host }}"
+        login_port: "{{ db_port }}"
+        login_user: "{{ db_user }}"
+        login_password: "{{ db_pass }}"
+        name: "{{ site_user }}"
+        password: "{{ site_user_pass }}"
+        host: "%"
+        priv: "{{ username.stdout }}.*:ALL,GRANT"
+      when: 
+        - sites_available.stat.exists == False
+
+    - name: Output
+      vars:
+        site_user: "{{ username.stdout }}"
+        site_user_pass: "{{ password.stdout }}"
+      ansible.builtin.debug:
+        msg:
+          - "PHP site {{ effective_site_url }} has been added successfully"
+          - "Site Name: {{ effective_site_url }}"
+          - "PHP Version: {{ php_version }}"
+          - "Database User: {{ site_user }}"
+          - "Database Password: {{ site_user_pass }}"
+          - "Database Name: {{ site_user }}"
+          - "Database Host: {{ db_host }}"
+          - "Database Port: {{ db_port }}"
+      when: sites_available.stat.exists == False

@@ -1,0 +1,37 @@
+---
+- name: List site
+  hosts: "{{ web_environment }}"
+  become: true
+  vars_files:
+    - var_files/web_vars.yml
+
+  tasks:
+    - name: Ensure metadata directory exists
+      ansible.builtin.file:
+        path: "{{ DOC_ROOT }}/metadata"
+        state: directory
+        mode: "0775"
+      run_once: true
+
+    - name: Find all persistent site metadata files
+      ansible.builtin.find:
+        paths: "{{ DOC_ROOT }}/metadata"
+        patterns: "*.json"
+      register: metadata_files
+
+    - name: Read metadata for each site
+      ansible.builtin.shell: |
+        cat "{{ item.path }}"
+      loop: "{{ metadata_files.files }}"
+      register: metadata_contents
+      changed_when: false
+
+    - name: Display cluster-wide active site directory
+      ansible.builtin.debug:
+        msg: >
+          {{
+            metadata_contents.results
+            | map(attribute='stdout')
+            | map('from_json')
+            | list
+          }}

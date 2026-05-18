@@ -1,0 +1,20 @@
+---
+- name: Discover installed PHP versions dynamically
+  hosts: "all:!local"
+  become: true
+
+  tasks:
+    - name: Run command to find installed PHP versions
+      ansible.builtin.shell: |
+        dpkg -l | grep -E '^ii\s+php[0-9.]+-fpm' | awk '{print $2}' | sed 's/-fpm//'
+      register: php_installed_list
+      changed_when: false
+
+    - name: Save PHP versions to local Ansible directory
+      delegate_to: localhost
+      run_once: true
+      become: false
+      ansible.builtin.copy:
+        content: "{{ php_installed_list.stdout_lines | to_json }}"
+        dest: /etc/ansible/installed_php_versions.json
+        mode: "0644"

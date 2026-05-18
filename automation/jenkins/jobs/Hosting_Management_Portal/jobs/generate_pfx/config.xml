@@ -1,0 +1,129 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<project>
+  <actions/>
+  <description><![CDATA[<div style="background-color: #f7f9fa; border-left: 5px solid #00acc1; padding: 12px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); font-family: -apple-system, BlinkMacSystemFont, sans-serif; color: #333;">
+  <span style="font-size: 1.2em; font-weight: 600; color: #00acc1;">📦 SSL/TLS PFX Packager</span>
+  <p style="margin: 6px 0 0 0; line-height: 1.5; font-size: 0.95em;">Combines the certificate authority response with the generated private key into a PKCS#12 (.pfx) bundle and safely archives it.</p>
+</div>]]></description>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <hudson.model.ParametersDefinitionProperty>
+      <parameterDefinitions>
+        <hudson.model.StringParameterDefinition>
+          <name>commonName</name>
+          <description>Enter the Fully Qualified Domain Name (FQDN) used for the CSR (e.g. example.com).</description>
+          <trim>true</trim>
+        </hudson.model.StringParameterDefinition>
+        <org.biouno.unochoice.CascadeChoiceParameter plugin="uno-choice@2.8.9">
+          <name>private_key_file</name>
+          <randomName>choice-parameter-2797465434154508</randomName>
+          <visibleItemCount>1</visibleItemCount>
+          <script class="org.biouno.unochoice.model.GroovyScript">
+            <secureScript plugin="script-security@1399.ve6a_66547f6e1">
+              <script>import java.io.File
+
+def csrBasePath = &quot;/site-data/csr-certs&quot;
+
+if (!commonName?.trim()) {
+    return [&quot;Select commonName first&quot;]
+}
+
+def keyDir = new File(&quot;${csrBasePath}/${commonName}&quot;)
+
+if (!keyDir.exists()) {
+    return [&quot;Directory not found: ${keyDir.absolutePath}&quot;]
+}
+
+if (!keyDir.isDirectory()) {
+    return [&quot;Not a directory: ${keyDir.absolutePath}&quot;]
+}
+
+def keys = keyDir.listFiles()
+        ?.findAll { it.isFile() &amp;&amp; it.name.endsWith(&quot;.key.pem&quot;) }
+        ?.collect { it.name }
+        ?: []
+
+// Sort newest first based on date in filename
+keys.sort { a, b -&gt;
+    def r = /_(\d{4}-\d{2}-\d{2})\.key\.pem$/
+    def da = (a =~ r).find() ? (a =~ r)[0][1] : &quot;0000-00-00&quot;
+    def db = (b =~ r).find() ? (b =~ r)[0][1] : &quot;0000-00-00&quot;
+    db &lt;=&gt; da
+}
+
+if (keys.isEmpty()) {
+    return [&quot;No private keys found for ${commonName}&quot;]
+}
+
+keys.add(0, &quot;Select a private key...&quot;)
+return keys
+</script>
+              <sandbox>false</sandbox>
+            </secureScript>
+            <secureFallbackScript plugin="script-security@1399.ve6a_66547f6e1">
+              <script></script>
+              <sandbox>true</sandbox>
+            </secureFallbackScript>
+          </script>
+          <projectName>generate_pfx</projectName>
+          <projectFullName>Hosting_Management_Portal/generate_pfx</projectFullName>
+          <parameters class="linked-hash-map"/>
+          <referencedParameters>commonName</referencedParameters>
+          <choiceType>PT_SINGLE_SELECT</choiceType>
+          <filterable>false</filterable>
+          <filterLength>1</filterLength>
+        </org.biouno.unochoice.CascadeChoiceParameter>
+        <hudson.model.FileParameterDefinition>
+          <name>CERT_PATH/crt.pem</name>
+          <description>Upload SSL certificate in .pem format </description>
+        </hudson.model.FileParameterDefinition>
+        <hudson.model.FileParameterDefinition>
+          <name>CERT_PATH/ca.pem</name>
+          <description>Upload CA Bundle certificate in .pem format </description>
+        </hudson.model.FileParameterDefinition>
+        <hudson.model.ChoiceParameterDefinition>
+          <name>azure_keyvault_uri</name>
+          <description>Select Azure Key Vault to upload PFX certificate</description>
+          <choices class="java.util.Arrays$ArrayList">
+            <a class="string-array">
+              <string>Certificats-DCAD</string>
+              <string>kv-blogfac-hub-weu</string>
+              <string>kv-c4e-hub-we-01</string>
+              <string>az-keyvault-dmint-dev</string>
+            </a>
+          </choices>
+        </hudson.model.ChoiceParameterDefinition>
+      </parameterDefinitions>
+    </hudson.model.ParametersDefinitionProperty>
+  </properties>
+  <scm class="hudson.scm.NullSCM"/>
+  <canRoam>true</canRoam>
+  <disabled>false</disabled>
+  <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
+  <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+  <triggers/>
+  <concurrentBuild>false</concurrentBuild>
+  <builders>
+    <hudson.tasks.Shell>
+      <command>csrDate=$(echo ${private_key_file} | sed -E &apos;s/.*_([0-9]{4}-[0-9]{2}-[0-9]{2}).*/\1/&apos;)
+azure_keyvault_cert_name=$(echo ${commonName} | tr . -)
+cp CERT_PATH/crt.pem /site-data/csr-certs/${commonName}/${commonName}_${csrDate}.crt.pem
+cp CERT_PATH/ca.pem /site-data/csr-certs/${commonName}/${commonName}_${csrDate}.ca.pem
+ansible-playbook -u &quot;$ANSIBLE_USER&quot; --private-key &quot;$ANSIBLE_PVT_KEY&quot; --extra-vars &quot;commonName=${commonName} csrDate=${csrDate} private_key_file=${private_key_file} azure_keyvault_cert_name=${azure_keyvault_cert_name} azure_keyvault_uri=${azure_keyvault_uri}&quot; /etc/ansible/playbooks/generate_pfx.yml
+</command>
+      <configuredLocalRules/>
+    </hudson.tasks.Shell>
+  </builders>
+  <publishers/>
+  <buildWrappers>
+    <org.jenkinsci.plugins.credentialsbinding.impl.SecretBuildWrapper plugin="credentials-binding@717.v951d49b_5f3a_a_">
+      <bindings>
+        <org.jenkinsci.plugins.credentialsbinding.impl.SSHUserPrivateKeyBinding>
+          <credentialsId>ansible_ssh_key</credentialsId>
+          <keyFileVariable>ANSIBLE_PVT_KEY</keyFileVariable>
+          <usernameVariable>ANSIBLE_USER</usernameVariable>
+        </org.jenkinsci.plugins.credentialsbinding.impl.SSHUserPrivateKeyBinding>
+      </bindings>
+    </org.jenkinsci.plugins.credentialsbinding.impl.SecretBuildWrapper>
+  </buildWrappers>
+</project>

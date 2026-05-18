@@ -1,0 +1,18 @@
+[global]
+pid = {{ PHP_FPM_SOCK_PATH }}/{{ site_user }}.pid
+
+[{{ site_user }}]
+user = {{ site_user }}
+group = {{ site_group }}
+listen = {{ PHP_FPM_SOCK_PATH }}/{{ site_user }}.sock
+listen.acl_users = www-data
+listen.allowed_clients = 127.0.0.1
+pm = ondemand
+pm.max_children = 10
+pm.process_idle_timeout = 10s
+pm.max_requests = 5000
+catch_workers_output = yes
+slowlog = {{ DOC_ROOT }}/{{ site_user }}/php-fpm-logs/{{ site_user }}-php-slow.log
+php_admin_value[error_log] = {{ DOC_ROOT }}/{{ site_user }}/php-fpm-logs/{{ site_user }}-php-error.log
+php_admin_flag[log_errors] = on
+php_admin_value[session.save_path] = {{ DOC_ROOT }}/{{ site_user }}/sessions

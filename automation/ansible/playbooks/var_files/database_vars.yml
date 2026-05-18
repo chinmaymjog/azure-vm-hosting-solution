@@ -1,0 +1,13 @@
+preproduction:
+  db_host: mysql-shared-preprod.mysql.database.azure.com
+  db_port: 3306
+  db_user: dbadmin
+  keyvault_name: kv-myhostingnew-5e12c6a8
+  keyvault_secret: mysql-admin-password
+
+production:
+  db_host: mysql-shared-prod.mysql.database.azure.com
+  db_port: 3306
+  db_user: dbadmin
+  keyvault_name: kv-myhostingnew-5e12c6a8
+  keyvault_secret: mysql-admin-password

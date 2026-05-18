@@ -1,0 +1,73 @@
+---
+- name: Install PHP-FPM
+  hosts: "all:!local"
+  become: true
+
+  tasks:
+    - name: Split PHP version string
+      set_fact:
+        php_name: "{{ php_version | regex_replace('([a-zA-Z]+)([0-9.]+)', '\\1') }}"
+        php_number: "{{ php_version | regex_replace('([a-zA-Z]+)([0-9.]+)', '\\2') }}"
+
+    - name: Installing PHP-FPM & required modules
+      ansible.builtin.apt:
+        name:
+          - "{{ php_version }}"
+          - "{{ php_version }}-bcmath"
+          - "{{ php_version }}-cli"
+          - "{{ php_version }}-common"
+          - "{{ php_version }}-curl"
+          - "{{ php_version }}-fpm"
+          - "{{ php_version }}-gd"
+          - "{{ php_version }}-gmp"
+          - "{{ php_version }}-intl"
+          - "{{ php_version }}-mbstring"
+          - "{{ php_version }}-mysql"
+          - "{{ php_version }}-readline"
+          - "{{ php_version }}-soap"
+          - "{{ php_version }}-xml"
+          - "{{ php_version }}-zip"
+          - "{{ php_version }}-imagick"
+          - "{{ php_version }}-rdkafka"
+        state: latest
+
+    - name: Creating {{ php_version }} multisite service
+      ansible.builtin.shell: |
+        cp /lib/systemd/system/{{ php_version }}-fpm.service /lib/systemd/system/{{ php_version }}-fpm@.service
+
+    - name: Configuring {{ php_version }} multisite service
+      ansible.builtin.lineinfile:
+        path: /lib/systemd/system/{{ php_version }}-fpm@.service
+        regex: "^ExecStart="
+        line: ExecStart=/usr/sbin/php-fpm{{ php_number }} --nodaemonize --fpm-config /etc/php/{{ php_number }}/fpm/pool.d/%i.conf
+
+    - name: Configuring {{ php_version }} multisite service
+      ansible.builtin.lineinfile:
+        path: /lib/systemd/system/{{ php_version }}-fpm@.service
+        regex: "^ExecStartPost="
+        state: absent
+
+    - name: Configuring {{ php_version }} multisite service
+      ansible.builtin.lineinfile:
+        path: /lib/systemd/system/{{ php_version }}-fpm@.service
+        regex: "^ExecStopPost="
+        state: absent
+
+    - name: Reload systemctl
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    - name: Run command to find installed PHP versions
+      ansible.builtin.shell: |
+        dpkg -l | grep -E '^ii\s+php[0-9.]+-fpm' | awk '{print $2}' | sed 's/-fpm//'
+      register: php_installed_list
+      changed_when: false
+
+    - name: Save PHP versions to local Ansible directory
+      delegate_to: localhost
+      run_once: true
+      become: false
+      ansible.builtin.copy:
+        content: "{{ php_installed_list.stdout_lines | to_json }}"
+        dest: /etc/ansible/installed_php_versions.json
+        mode: "0644"

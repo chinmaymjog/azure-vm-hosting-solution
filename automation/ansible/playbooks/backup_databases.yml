@@ -1,0 +1,58 @@
+---
+- name: Backup all databases
+  hosts: localhost
+  become: true
+  vars_files:
+    - var_files/web_vars.yml
+    - var_files/database_vars.yml
+
+  tasks:
+    - name: Set environment-specific database variables
+      set_fact:
+        db_host: "{{ lookup('vars', web_environment).db_host }}"
+        db_port: "{{ lookup('vars', web_environment).db_port | default(3306) }}"
+        db_user: "{{ lookup('vars', web_environment).db_user }}"
+        keyvault_name: "{{ lookup('vars', web_environment).keyvault_name }}"
+        keyvault_secret: "{{ lookup('vars', web_environment).keyvault_secret }}"
+
+    - name: Fetch Azure Managed Identity Token
+      delegate_to: localhost
+      run_once: true
+      become: false
+      ansible.builtin.uri:
+        url: "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://vault.azure.net"
+        headers:
+          Metadata: "true"
+        return_content: true
+      register: token_response
+
+    - name: Fetch MySQL Admin Password from Azure Key Vault
+      delegate_to: localhost
+      run_once: true
+      become: false
+      ansible.builtin.uri:
+        url: "https://{{ keyvault_name }}.vault.azure.net/secrets/{{ keyvault_secret }}?api-version=7.0"
+        headers:
+          Authorization: "Bearer {{ (token_response.content | from_json).access_token }}"
+        return_content: true
+      register: secret_response
+
+    - name: Set DB root password fact
+      set_fact:
+        db_pass: "{{ (secret_response.content | from_json).value }}"
+
+    - name: Find all databases
+      shell: |
+        mysql -h {{ db_host }} -u {{ db_user }} -p"{{ db_pass }}" -e "SHOW DATABASES;"|grep -Ev "(Database|information_schema|performance_schema|sys|mysql)"
+      register: my_dbs
+
+    - name: List of databases
+      debug:
+        msg: "{{my_dbs.stdout_lines}}"
+
+    - name: Take Backup
+      shell: |
+        mysqldump --force --opt --skip-lock-tables -h {{ db_host }} -u {{ db_user }} -p"{{ db_pass }}" --databases {{ item }} | gzip > {{ BACKUP_PATH }}/{{ web_environment }}/database_backup/{{ item }}_{{ ansible_facts['date_time']['date'] | regex_replace('-', '') }}.sql.gz
+      loop: "{{ my_dbs.stdout_lines }}"
+      args:
+        executable: /bin/bash

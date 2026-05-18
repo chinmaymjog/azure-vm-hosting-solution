@@ -1,0 +1,17 @@
+---
+- name: Enable HTML site
+  hosts: "{{ web_environment }}"
+  become: true
+
+  tasks:
+    - name: Enable site
+      ansible.builtin.shell: a2ensite {{ site_url }}
+      when:
+        - site_url != ""
+
+    - name: Restart apache2
+      ansible.builtin.systemd:
+        name: apache2
+        state: restarted
+      when:
+        - site_url != ""

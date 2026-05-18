@@ -1,0 +1,39 @@
+---
+- name: Backup apache Configuration
+  hosts: "{{ web_environment }}"
+  become: true
+  vars_files:
+    - var_files/web_vars.yml
+
+  tasks:
+    # Use Ansible facts for date and hostname instead of shell commands
+
+    - name: PHP Configuration Backup
+      archive:
+        path: "{{ PHP_FPM_CONF_PATH }}"
+        dest: "{{ BACKUP_PATH }}/{{ web_environment }}/apache_conf_backup/php_conf_{{ inventory_hostname }}_{{ ansible_facts['date_time']['date'] | regex_replace('-', '') }}.tgz"
+
+    - name: Httpd Configuration Backup
+      archive:
+        path: "{{ APACHE2_AVAILABLE }}"
+        dest: "{{ BACKUP_PATH }}/{{ web_environment }}/apache_conf_backup/httpd_conf_{{ inventory_hostname }}_{{ ansible_facts['date_time']['date'] | regex_replace('-', '') }}.tgz"
+
+    - name: Auth Available Backup
+      archive:
+        path: "{{ AUTH_AVAILABLE }}"
+        dest: "{{ BACKUP_PATH }}/{{ web_environment }}/apache_conf_backup/auth-available_{{ inventory_hostname }}_{{ ansible_facts['date_time']['date'] | regex_replace('-', '') }}.tgz"
+
+    - name: Auth File Backup
+      archive:
+        path: "{{ AUTH_FILES }}"
+        dest: "{{ BACKUP_PATH }}/{{ web_environment }}/apache_conf_backup/auth-files_{{ inventory_hostname }}_{{ ansible_facts['date_time']['date'] | regex_replace('-', '') }}.tgz"
+
+    - name: HTTP rules Backup
+      archive:
+        path: "{{ APACHE2_RULES_PATH }}"
+        dest: "{{ BACKUP_PATH }}/{{ web_environment }}/apache_conf_backup/sites-configuration_{{ inventory_hostname }}_{{ ansible_facts['date_time']['date'] | regex_replace('-', '') }}.tgz"
+
+    # - name: Websites Backup
+    #   archive:
+    #     path: "{{ DOC_ROOT }}"
+    #     dest: "{{ BACKUP_PATH }}/{{ web_environment }}/apache_conf_backup/web_data_{{ inventory_hostname }}_{{ ansible_facts['date_time']['date'] | regex_replace('-', '') }}.tgz"

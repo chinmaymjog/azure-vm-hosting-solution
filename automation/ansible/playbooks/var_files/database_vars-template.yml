@@ -1,0 +1,12 @@
+preproduction:
+  db_host: db_preproduction
+  db_port: 3306
+  db_user: user_preproduction
+  db_pass: pass_preproduction
+
+production:
+  db_host: db_production
+  db_port: 3306
+  db_user: user_production
+  db_pass: pass_production
+  

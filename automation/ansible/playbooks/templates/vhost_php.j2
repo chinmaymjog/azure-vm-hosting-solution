@@ -1,0 +1,16 @@
+<VirtualHost *:80>
+  ServerAdmin support@hosting.local
+  ServerName {{ site_url }}
+  DocumentRoot {{ DOC_ROOT }}/{{ site_user }}/web
+  DirectoryIndex index.php index.html
+  ErrorLog {{ DOC_ROOT }}/{{ site_user }}/logs/{{ site_user }}-error.log
+  CustomLog {{ DOC_ROOT }}/{{ site_user }}/logs/{{ site_user }}-access.log combined
+
+    <Directory {{ DOC_ROOT }}/{{ site_user }}/web>
+      Options -Indexes -Includes +FollowSymLinks +MultiViews
+      AllowOverride All
+      Require all granted
+    </Directory>
+
+  ProxyPassMatch "^/(.*\.php(/.*)?)$" "unix:{{ PHP_FPM_SOCK_PATH }}/{{ site_user }}.sock|fcgi://localhost{{ DOC_ROOT }}/{{ site_user }}/web"
+</VirtualHost>

@@ -1,57 +1,43 @@
-# ☁️ Azure VM-Based Hosting Solution
+# Azure Shared Hosting Platform (Hardened)
 
-**Azure VM-Based Hosting Solution** is a production-ready, automated blueprint for deploying and managing high-performance web hosting environments on Azure Virtual Machines.
+A modular, enterprise-grade Infrastructure-as-Code (IaC) repository for deploying a shared hosting platform on Azure. This project implements a **Hub-Spoke** architecture with a centralized **Management Jumpbox**, hardened compute nodes, and a multi-tier storage strategy.
 
----
+## 🏗️ Architecture
+- **Global Ingress**: Azure Front Door (AFD) with WAF for edge security.
+- **Load Balancing**: Standard Public Load Balancer for regional traffic.
+- **Compute**: Hardened Ubuntu VMs in a private subnet, scaleable via `vm_count`.
+- **Management Hub**: Centralized VNet with a Jumpbox and shared services.
+- **Multi-Tier Storage**:
+    - **NetApp Volume (Websites)**: High-performance NFS v4.1 for shared web assets (Provisioned per Environment).
+    - **Azure Files NFS (Backups)**: Centralized, durable Premium NFS share for backups (Provisioned in Shared Hub).
+    - **Managed Data Disk**: Local LVM-partitioned storage for application-specific data.
+- **Database**: Azure MySQL Flexible Server with Private DNS integration.
+- **Secret Management**: Centralized **Azure Key Vault** in the Hub for zero-knowledge password and certificate storage.
 
-## 💡 Why this project?
-
-> "While Kubernetes is the gold standard for cloud-native apps, many businesses require a simpler, more cost-effective way to host traditional web stacks. I built this solution to prove that VM-based hosting can be just as automated, secure, and scalable as modern container platforms—at a fraction of the complexity."
-
----
-
-## ✨ Key Features
-
-*   **Infrastructure as Code**: Modular Terraform templates for standalone VMs and auto-scaling VMSS.
-*   **Automated Hardening**: Ansible playbooks that implement CIS-lite security standards from the first boot.
-*   **Application Lifecycle**: One-command deployment of the WordPress stack (LEMP).
-*   **Data Durability**: Integrated backup scripts for Azure Blob Storage.
-*   **Unified Workflow**: A minimalist `Makefile` entry point for both IaC and Config Management.
-
----
-
-## 🏗️ Quick Start
-
-### 1. Requirements
-*   **Terraform**: 1.5+
-*   **Ansible**: 2.15+
-*   **Azure CLI**: Logged in via `az login`.
-
-### 2. Deploy Infrastructure
-```bash
-make infra-init
-make infra-apply
+## 📁 Repository Structure
+```text
+.
+├── automation/
+│   ├── ansible/        # Core infrastructure playbooks and logic
+│   └── jenkins/        # Preconfigured Jenkins container and jobs
+├── terraform/
+│   ├── shared-hub/     # Shared Management, Backup, & Secret Plane (Jumpbox, Vault, NFS)
+│   └── platform/       # Application Environment (Spoke: Web, DB, NetApp)
+├── Makefile            # Simplified operational entry point
+└── HOW_TO_GUIDE.md     # Step-by-step deployment instructions
 ```
 
-### 3. Configure & Harden
-```bash
-# Update ansible/inventory.ini with your VM IP
-make ansible-prep
-make ansible-deploy
-```
+## 🛡️ Hardened Security Architecture
+- **Zero-Trust Identity**: The Jumpbox utilizes a **User-Assigned Managed Identity** to fetch database secrets from Azure Key Vault at runtime. No static DB credentials ever touch the disk.
+- **Hub-Spoke Networking**: Total isolation between management (Hub) and workloads (Spokes), connected via private peering.
+- **Private DNS Integration**: Cross-VNet DNS linking ensures that the management Jumpbox and Web fleet resolve internal resources via a single source of truth.
+
+## ⚡ High-Performance Storage
+- **Azure NetApp Files**: All web applications are served from a high-performance NetApp mount (`/netappwebsites`), ensuring enterprise-grade IOPS and latency for shared hosting environments.
+- **Durable Backups**: Integrated NFS backup rotation to a central, geo-redundant storage account.
 
 ---
-
-## 📖 Documentation
-For detailed deployment steps and operational guidance, check the:
-- 👉 **[Comprehensive User Guide](./HOW_TO_GUIDE.md)**
-- 👉 **[Technical Deep-Dive Article](./docs/posts/azure-vm-hosting-article.md)**
-
-## 🤝 Contributing
-Contributions are welcome! Please see the **[Contribution Guidelines](./CONTRIBUTING.md)** for details.
-
-## 🛡️ Security
-This solution prioritizes OS hardening, including SSH lockdown, firewall management, and automated security patching. Infrastructure is deployed following the principle of least privilege.
+*For detailed instructions, see the [HOW_TO_GUIDE.md](./HOW_TO_GUIDE.md).*
 
 ---
-*Maintained by [Chinmay Jog](https://github.com/chinmaymjog)*
+*Maintained by [Chinmay Jog](https://github.com/chinmaymjog) | 📖 [Read my articles on Medium](https://medium.com/@chinmaymjog)*

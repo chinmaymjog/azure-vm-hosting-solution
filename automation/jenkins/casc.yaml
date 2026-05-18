@@ -1,0 +1,45 @@
+jenkins:
+  systemMessage: "Welcome to the Preconfigured Azure Jenkins Platform! 🚀\nThis instance is managed as code (JCasC)."
+  numExecutors: 2
+  markupFormatter:
+    rawHtml:
+      disableSyntaxHighlighting: false
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+       - id: "admin"
+         # This password will be injected via the JENKINS_ADMIN_PASSWORD environment variable
+         password: "${JENKINS_ADMIN_PASSWORD}"
+  authorizationStrategy:
+    loggedInUsersCanDoAnything:
+      allowAnonymousRead: false
+  
+  # Configure an initial node (if needed, otherwise master is used)
+  nodes:
+    - permanent:
+        labelString: "linux-agent docker-agent"
+        mode: NORMAL
+        name: "agent-1"
+        numExecutors: 2
+        remoteFS: "/home/jenkins/agent"
+        retentionStrategy: "always"
+
+unclassified:
+  location:
+    url: "http://localhost:8080/"
+    adminAddress: "admin@azure-vm-hosting.local"
+
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - basicSSHUserPrivateKey:
+              scope: GLOBAL
+              id: "ansible_ssh_key"
+              username: "azureuser"
+              description: "Jumpbox and Spoke VM SSH Key"
+              privateKeySource:
+                directEntry:
+                  privateKey: "${SSH_PRIVATE_KEY}"
+

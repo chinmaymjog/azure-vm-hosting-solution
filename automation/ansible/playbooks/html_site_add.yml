@@ -1,0 +1,144 @@
+---
+- name: Creating New HTML Site
+  hosts: preproduction, production
+  become: true
+  vars_files:
+    - var_files/web_vars.yml
+
+  tasks:
+    - name: Validate FQDN format
+      delegate_to: localhost
+      run_once: true
+      become: false
+      ansible.builtin.assert:
+        that:
+          - site_url is defined and site_url | length > 0
+          - site_url is match('^[a-zA-Z0-9][-a-zA-Z0-9.]*\\.[a-zA-Z]{2,11}$')
+        fail_msg: "🚨 Invalid FQDN '{{ site_url | default('') }}'! Domain must be a valid FQDN (e.g. example.com) without protocol prefixes (http://) or trailing slashes (/)."
+
+    - name: Set environment-specific site URL
+      ansible.builtin.set_fact:
+        effective_site_url: "{{ 'preprod-' + site_url if 'preproduction' in group_names else site_url }}"
+
+    - name: Check if Apache config file exists in sites-available
+      ansible.builtin.stat:
+        path: "{{ APACHE2_AVAILABLE }}/{{ effective_site_url }}.conf"
+      register: sites_available
+
+    - name: Progress
+      ansible.builtin.debug:
+        msg:
+          - "{{ effective_site_url }} already exist"
+          - "Other tasks will be skipped"
+      when: sites_available.stat.exists == True
+
+    - name: Building site username
+      delegate_to: localhost
+      delegate_facts: true
+      run_once: true
+      become: false
+      ansible.builtin.shell: |
+        rndm=$(( 10000 + $RANDOM % 90000 ))
+        user=$(echo {{ site_url }} | tr -d '.,-' | sed -e s/preprod//g | cut -c 1-10)_$rndm
+        echo $user
+      register: username
+      args:
+        executable: /bin/bash
+      when: sites_available.stat.exists == False
+
+    - name: Building site user password
+      delegate_to: localhost
+      delegate_facts: true
+      run_once: true
+      become: false
+      ansible.builtin.shell: |
+        pass=$(openssl rand -hex 12)
+        echo $pass
+      register: password
+      args:
+        executable: /bin/bash
+      when: sites_available.stat.exists == False
+
+    - name: Creating site user
+      vars:
+        site_user: "{{ username.stdout }}"
+        site_user_pass: "{{ password.stdout }}"
+      ansible.builtin.user:
+        name: "{{ site_user }}"
+        password: "{{ site_user_pass }}"
+        groups: web_users
+        create_home: false
+      when: sites_available.stat.exists == False
+
+    - name: Create site directories
+      vars:
+        site_user: "{{ username.stdout }}"
+      ansible.builtin.file:
+        path: "{{ DOC_ROOT }}/{{ site_user }}/{{ item.path }}"
+        state: directory
+        mode: "{{ item.mode }}"
+        owner: "{{ item.owner }}"
+        group: web_users
+      loop:
+        - { path: "web", mode: "02775", owner: "{{ site_user }}" }
+        - { path: "logs", mode: "02775", owner: "root" }
+      when: sites_available.stat.exists == False
+
+    - name: Adding default index page
+      vars:
+        site_user: "{{ username.stdout }}"
+      ansible.builtin.template:
+        src: ../templates/welcome.html.j2
+        dest: "{{ DOC_ROOT }}/{{ site_user }}/web/index.html"
+        mode: "644"
+        owner: "{{ site_user }}"
+      when: sites_available.stat.exists == False
+
+    - name: Create Apache virtual host configuration
+      vars:
+        site_user: "{{ username.stdout }}"
+      ansible.builtin.template:
+        src: ../templates/vhost_html.j2
+        dest: "{{ APACHE2_AVAILABLE }}/{{ effective_site_url }}.conf"
+        mode: "644"
+      when: sites_available.stat.exists == False
+
+    - name: Enable Apache site configuration
+      ansible.builtin.shell: a2ensite {{ effective_site_url }}
+      when: sites_available.stat.exists == False
+
+    - name: Restart Apache2 service
+      ansible.builtin.systemd:
+        name: apache2
+        state: restarted
+      when: sites_available.stat.exists == False
+
+    - name: Output
+      ansible.builtin.debug:
+        msg:
+          - "HTML site {{ effective_site_url }} has been added successfully"
+      when: sites_available.stat.exists == False
+
+    - name: Ensure metadata registry directory exists
+      ansible.builtin.file:
+        path: "{{ DOC_ROOT }}/metadata"
+        state: directory
+        mode: "0775"
+        group: web_users
+      run_once: true
+
+    - name: Write site metadata to persistent NetApp store
+      vars:
+        site_user: "{{ username.stdout }}"
+      ansible.builtin.copy:
+        content: |
+          {
+            "site_url": "{{ effective_site_url }}",
+            "site_user": "{{ site_user }}",
+            "site_type": "html",
+            "php_version": "NA",
+            "created_at": "{{ ansible_date_time.iso8601 }}"
+          }
+        dest: "{{ DOC_ROOT }}/metadata/{{ effective_site_url }}.json"
+        mode: "0644"
+      when: sites_available.stat.exists == False

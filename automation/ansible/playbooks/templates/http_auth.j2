@@ -1,0 +1,6 @@
+<Directory {{ DOC_ROOT }}/{{ site_user }}/web>
+    AuthType Basic 
+    AuthName "Authorized users only."
+    AuthUserFile {{ AUTH_FILES }}/{{ site_authuser }}
+    Require valid-user
+</Directory>

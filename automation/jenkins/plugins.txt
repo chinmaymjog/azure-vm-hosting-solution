@@ -1,0 +1,14 @@
+# Jenkins plugins to install
+configuration-as-code:latest
+job-dsl:latest
+git:latest
+workflow-aggregator:latest
+azure-credentials:latest
+azure-app-service:latest
+docker-workflow:latest
+credentials-binding:latest
+ws-cleanup:latest
+uno-choice:latest
+envinject:latest
+thinBackup:latest
+antisamy-markup-formatter:latest

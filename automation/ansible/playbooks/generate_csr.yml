@@ -1,0 +1,44 @@
+---
+- name: Generate CSR for site
+  hosts: localhost
+  vars_files:
+    - var_files/web_vars.yml
+
+  tasks:
+    - name: Create directory structure if does not exist
+      ansible.builtin.file:
+        path: "{{ CERT_PATH }}/{{ commonName }}"
+        state: directory
+
+    - name: Generate an OpenSSL private key with the default values (4096 bits, RSA)
+      community.crypto.openssl_privatekey:
+        path: "{{ CERT_PATH }}/{{ commonName }}/{{ commonName }}_{{ansible_facts['date_time']['date']}}.key.pem"
+
+    - name: Generate an OpenSSL Certificate Signing Request without subjectAltName extension
+      community.crypto.openssl_csr:
+        path: "{{ CERT_PATH }}/{{ commonName }}/{{ commonName }}_{{ansible_facts['date_time']['date']}}.csr"
+        privatekey_path: "{{ CERT_PATH }}/{{ commonName }}/{{ commonName }}_{{ansible_facts['date_time']['date']}}.key.pem"
+        commonName: "{{ commonName }}"
+        countryName: "{{ countryName }}"
+        localityName: "{{ localityName }}"
+        stateOrProvinceName: "{{ stateOrProvinceName }}"
+        organizationName: "{{ organizationName }}"
+        organizationalUnitName: "{{ organizationalUnitName }}"
+        emailAddress: "{{ emailAddress }}"
+      when: subjectAltName == ""
+
+    - name: Generate an OpenSSL Certificate Signing Request with subjectAltName extension
+      community.crypto.openssl_csr:
+        path: "{{ CERT_PATH }}/{{ commonName }}/{{ commonName }}_{{ansible_facts['date_time']['date']}}.csr"
+        privatekey_path: "{{ CERT_PATH }}/{{ commonName }}/{{ commonName }}_{{ansible_facts['date_time']['date']}}.key.pem"
+        commonName: "{{ commonName }}"
+        countryName: "{{ countryName }}"
+        localityName: "{{ localityName }}"
+        stateOrProvinceName: "{{ stateOrProvinceName }}"
+        organizationName: "{{ organizationName }}"
+        organizationalUnitName: "{{ organizationalUnitName }}"
+        emailAddress: "{{ emailAddress }}"
+        subjectAltName: "{{ item.value | map('regex_replace', '^', 'DNS:') | list }}"
+      with_dict:
+        dns: "{{ subjectAltName.splitlines() }}"
+      when: subjectAltName != ""

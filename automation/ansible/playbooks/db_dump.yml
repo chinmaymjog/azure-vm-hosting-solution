@@ -1,0 +1,80 @@
+---
+- name: Database dump for specific site
+  hosts: localhost
+  become: true
+  vars_files:
+    - var_files/web_vars.yml
+    - var_files/database_vars.yml
+
+  tasks:
+    - name: Set web_environment-specific database variables
+      set_fact:
+        db_host: "{{ lookup('vars', web_environment).db_host }}"
+        db_port: "{{ lookup('vars', web_environment).db_port | default(3306) }}"
+        db_user: "{{ lookup('vars', web_environment).db_user }}"
+        keyvault_name: "{{ lookup('vars', web_environment).keyvault_name }}"
+        keyvault_secret: "{{ lookup('vars', web_environment).keyvault_secret }}"
+
+    - name: Validate FQDN format
+      delegate_to: localhost
+      run_once: true
+      become: false
+      ansible.builtin.assert:
+        that:
+          - site_url is defined and site_url | length > 0
+          - site_url is match('^[a-zA-Z0-9][-a-zA-Z0-9.]*\\.[a-zA-Z]{2,11}$')
+        fail_msg: "🚨 Invalid FQDN '{{ site_url | default('') }}'! Domain must be a valid FQDN (e.g. example.com) without protocol prefixes (http://) or trailing slashes (/)."
+
+    - name: Fetch Azure Managed Identity Token
+      delegate_to: localhost
+      run_once: true
+      become: false
+      ansible.builtin.uri:
+        url: "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://vault.azure.net"
+        headers:
+          Metadata: "true"
+        return_content: true
+      register: token_response
+
+    - name: Fetch MySQL Admin Password from Azure Key Vault
+      delegate_to: localhost
+      run_once: true
+      become: false
+      ansible.builtin.uri:
+        url: "https://{{ keyvault_name }}.vault.azure.net/secrets/{{ keyvault_secret }}?api-version=7.0"
+        headers:
+          Authorization: "Bearer {{ (token_response.content | from_json).access_token }}"
+        return_content: true
+      register: secret_response
+
+    - name: Set DB root password fact
+      set_fact:
+        db_pass: "{{ (secret_response.content | from_json).value }}"
+
+    - name: Read site metadata from NetApp volume
+      ansible.builtin.shell: |
+        cat {{ DOC_ROOT }}/metadata/{{ site_url }}.json
+      register: site_metadata_content
+      failed_when: false
+      when: site_url != ""
+
+    - name: Set database name from dynamic JSON metadata
+      ansible.builtin.set_fact:
+        site_db_name: "{{ (site_metadata_content.stdout | from_json).site_user if site_metadata_content.rc == 0 else '' }}"
+      when:
+        - site_metadata_content.rc is defined
+        - site_metadata_content.rc == 0
+
+    - name: Site not exists
+      debug:
+        msg: "Database for {{ site_url }} doesn't exists. Hence skipping the below tasks"
+      when: site_db_name | default('') == ""
+
+    - name: Site exists
+      debug:
+        msg: "Database name for {{ site_url }} is: {{ site_db_name }}"
+      when: site_db_name | default('') != ""
+
+    - name: Take Backup
+      shell: mysqldump --force --opt --skip-lock-tables -h {{ db_host }} -u {{ db_user }}  -p"{{ db_pass }}" --databases {{ site_db_name }} | gzip > {{ BACKUP_PATH }}/{{ web_environment }}/{{ site_db_name }}_{{ ansible_facts['date_time']['date'] }}.sql.gz
+      when: site_db_name | default('') != ""
