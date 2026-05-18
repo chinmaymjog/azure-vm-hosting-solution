@@ -17,11 +17,55 @@
   <properties>
     <hudson.model.ParametersDefinitionProperty>
       <parameterDefinitions>
-        <hudson.model.StringParameterDefinition>
+        <org.biouno.unochoice.ChoiceParameter plugin="uno-choice@2.8.8">
           <name>site_url</name>
-          <description>Enter the Fully Qualified Domain Name (FQDN) of the website to be decommissioned. This must match an existing site configuration.</description>
-          <trim>false</trim>
-        </hudson.model.StringParameterDefinition>
+          <description>Select the Fully Qualified Domain Name (FQDN) of the website. (Auto-populated from metadata registry)</description>
+          <randomName>choice-parameter-site-url-remove</randomName>
+          <visibleItemCount>1</visibleItemCount>
+          <script class="org.biouno.unochoice.model.GroovyScript">
+            <secureScript plugin="script-security@1385.v7d2d9ec4d909">
+              <script>
+def folder = new File(&quot;/backups/sites&quot;)
+if (folder.exists() &amp;&amp; folder.isDirectory()) {
+    def files = folder.listFiles({ file -&gt; file.name.endsWith(&quot;.json&quot;) } as FileFilter)
+    if (files) {
+        return files.collect { it.name.minus(&quot;.json&quot;) }.sort()
+    }
+}
+return [&quot;No active sites found&quot;]
+              </script>
+              <sandbox>true</sandbox>
+            </secureScript>
+            <secureFallbackScript plugin="script-security@1385.v7d2d9ec4d909">
+              <script>return [&apos;error&apos;]</script>
+              <sandbox>true</sandbox>
+            </secureFallbackScript>
+          </script>
+          <projectName>site_remove</projectName>
+          <projectFullName>Admin_Tools/site_remove</projectFullName>
+          <choiceType>PT_SINGLE_SELECT</choiceType>
+          <filterable>true</filterable>
+          <filterLength>1</filterLength>
+        </org.biouno.unochoice.ChoiceParameter>
+        <org.biouno.unochoice.ChoiceParameter plugin="uno-choice@2.8.8">
+          <name>web_environment</name>
+          <randomName>choice-parameter-109883846587175</randomName>
+          <visibleItemCount>1</visibleItemCount>
+          <script class="org.biouno.unochoice.model.GroovyScript">
+            <secureScript plugin="script-security@1385.v7d2d9ec4d909">
+              <script>return[&apos;preproduction&apos;, &apos;production&apos;]</script>
+              <sandbox>true</sandbox>
+            </secureScript>
+            <secureFallbackScript plugin="script-security@1385.v7d2d9ec4d909">
+              <script></script>
+              <sandbox>true</sandbox>
+            </secureFallbackScript>
+          </script>
+          <projectName>site_remove</projectName>
+          <projectFullName>Admin_Tools/site_remove</projectFullName>
+          <choiceType>PT_SINGLE_SELECT</choiceType>
+          <filterable>false</filterable>
+          <filterLength>1</filterLength>
         <org.biouno.unochoice.ChoiceParameter plugin="uno-choice@2.8.8">
           <name>web_environment</name>
           <randomName>choice-parameter-109883846587175</randomName>
@@ -42,54 +86,6 @@
           <filterable>false</filterable>
           <filterLength>1</filterLength>
         </org.biouno.unochoice.ChoiceParameter>
-        <org.biouno.unochoice.ChoiceParameter plugin="uno-choice@2.8.8">
-          <name>site_type</name>
-          <randomName>choice-parameter-108453617134528</randomName>
-          <visibleItemCount>1</visibleItemCount>
-          <script class="org.biouno.unochoice.model.GroovyScript">
-            <secureScript plugin="script-security@1385.v7d2d9ec4d909">
-              <script>return[&apos;html&apos;, &apos;php&apos;]</script>
-              <sandbox>true</sandbox>
-            </secureScript>
-            <secureFallbackScript plugin="script-security@1385.v7d2d9ec4d909">
-              <script></script>
-              <sandbox>true</sandbox>
-            </secureFallbackScript>
-          </script>
-          <projectName>site_remove</projectName>
-          <projectFullName>Admin_Tools/site_remove</projectFullName>
-          <choiceType>PT_SINGLE_SELECT</choiceType>
-          <filterable>false</filterable>
-          <filterLength>1</filterLength>
-        </org.biouno.unochoice.ChoiceParameter>
-        <org.biouno.unochoice.CascadeChoiceParameter plugin="uno-choice@2.8.8">
-          <name>php_version</name>
-          <randomName>choice-parameter-108656354706473</randomName>
-          <visibleItemCount>1</visibleItemCount>
-          <script class="org.biouno.unochoice.model.GroovyScript">
-            <secureScript plugin="script-security@1385.v7d2d9ec4d909">
-              <script>if (site_type == &quot;php&quot;) {
-return[&apos;php8.3&apos;]
-}
-
-if (site_type == &quot;html&quot;) {
-return[&apos;NA&apos;]
-}</script>
-              <sandbox>true</sandbox>
-            </secureScript>
-            <secureFallbackScript plugin="script-security@1385.v7d2d9ec4d909">
-              <script></script>
-              <sandbox>true</sandbox>
-            </secureFallbackScript>
-          </script>
-          <projectName>site_remove</projectName>
-          <projectFullName>Admin_Tools/site_remove</projectFullName>
-          <parameters class="linked-hash-map"/>
-          <referencedParameters>site_type</referencedParameters>
-          <choiceType>PT_SINGLE_SELECT</choiceType>
-          <filterable>false</filterable>
-          <filterLength>1</filterLength>
-        </org.biouno.unochoice.CascadeChoiceParameter>
       </parameterDefinitions>
     </hudson.model.ParametersDefinitionProperty>
   </properties>
@@ -102,15 +98,13 @@ return[&apos;NA&apos;]
   <concurrentBuild>false</concurrentBuild>
   <builders>
     <hudson.tasks.Shell>
-      <command>if [ &quot;${site_type}&quot; = &quot;html&quot; ]; then
-	echo &quot;Deleting HTML site ${site_url} on ${web_environment}&quot;
-    ansible-playbook -u &quot;$ANSIBLE_USER&quot; --private-key &quot;$ANSIBLE_PVT_KEY&quot; --extra-vars &quot;site_url=${site_url} web_environment=${web_environment}&quot; /etc/ansible/playbooks/html_site_remove.yml
+      <command>if [ -z &quot;$site_url&quot; ]; then
+    echo &quot;URL cannot be empty&quot;
+    exit 1
 fi
 
-if [ &quot;${site_type}&quot; = &quot;php&quot; ]; then
-	echo &quot;Deleting PHP ${php_version} site ${site_url} on ${web_environment}&quot;
-    ansible-playbook -u &quot;$ANSIBLE_USER&quot; --private-key &quot;$ANSIBLE_PVT_KEY&quot; --extra-vars &quot;site_url=${site_url} php_version=${php_version} web_environment=${web_environment}&quot; /etc/ansible/playbooks/php_site_remove.yml
-fi</command>
+echo &quot;Decommissioning site ${site_url} on ${web_environment}&quot;
+ansible-playbook -u &quot;$ANSIBLE_USER&quot; --private-key &quot;$ANSIBLE_PVT_KEY&quot; --extra-vars &quot;site_url=${site_url} web_environment=${web_environment}&quot; /etc/ansible/playbooks/site_remove.yml</command>
       <configuredLocalRules/>
     </hudson.tasks.Shell>
   </builders>

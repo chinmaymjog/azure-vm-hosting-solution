@@ -1,0 +1,202 @@
+---
+- name: Deleting Site (Unified HTML/PHP)
+  hosts: "{{ web_environment }}"
+  become: true
+  vars_files:
+    - var_files/web_vars.yml
+    - var_files/database_vars.yml
+
+  tasks:
+    - name: Validate FQDN format
+      delegate_to: localhost
+      run_once: true
+      become: false
+      ansible.builtin.assert:
+        that:
+          - site_url is defined and site_url | length > 0
+          - site_url is match('^[a-zA-Z0-9][-a-zA-Z0-9.]*\\.[a-zA-Z]{2,11}$')
+        fail_msg: "🚨 Invalid FQDN '{{ site_url | default('') }}'!"
+
+    - name: Checking if config file exists in sites-available
+      ansible.builtin.stat:
+        path: "{{ APACHE2_AVAILABLE }}/{{ site_url }}.conf"
+      register: sites_available
+      when:
+        - site_url != ""
+
+    - name: Fail if site does not exist
+      ansible.builtin.fail:
+        msg: "🚨 The site '{{ site_url }}' does not exist in Apache sites-available!"
+      when:
+        - site_url != ""
+        - not sites_available.stat.exists
+
+    - name: Disable site in Apache
+      ansible.builtin.shell: a2dissite {{ site_url }}
+      when:
+        - site_url != ""
+        - sites_available.stat.exists
+
+    - name: Deleting site VHOST config
+      ansible.builtin.file:
+        path: "{{ APACHE2_AVAILABLE }}/{{ site_url }}.conf"
+        state: absent
+      when:
+        - site_url != ""
+        - sites_available.stat.exists
+
+    - name: Read site metadata from persistent NFS store
+      delegate_to: localhost
+      run_once: true
+      become: false
+      ansible.builtin.command:
+        cmd: "cat {{ SITE_LIST_PATH }}/{{ site_url }}.json"
+      register: site_metadata_content
+      failed_when: false
+      changed_when: false
+      when:
+        - site_url != ""
+        - sites_available.stat.exists
+
+    - name: Parse dynamic metadata facts
+      ansible.builtin.set_fact:
+        username_from_json: "{{ (hostvars['localhost']['site_metadata_content'].stdout | from_json).site_user if hostvars['localhost']['site_metadata_content'].rc == 0 else '' }}"
+        site_type_from_json: "{{ (hostvars['localhost']['site_metadata_content'].stdout | from_json).site_type if hostvars['localhost']['site_metadata_content'].rc == 0 else 'html' }}"
+        php_version_from_json: "{{ (hostvars['localhost']['site_metadata_content'].stdout | from_json).php_version if hostvars['localhost']['site_metadata_content'].rc == 0 else '' }}"
+      when:
+        - site_url != ""
+        - sites_available.stat.exists
+
+    - name: Set environment-specific database variables
+      set_fact:
+        db_host: "{{ lookup('vars', web_environment).db_host }}"
+        db_port: "{{ lookup('vars', web_environment).db_port | default(3306) }}"
+        db_user: "{{ lookup('vars', web_environment).db_user }}"
+        keyvault_name: "{{ lookup('vars', web_environment).keyvault_name }}"
+        keyvault_secret: "{{ lookup('vars', web_environment).keyvault_secret }}"
+      when:
+        - site_url != ""
+        - sites_available.stat.exists
+        - site_type_from_json == 'php'
+
+    - name: Fetch Azure Vault Access Token
+      delegate_to: localhost
+      run_once: true
+      become: false
+      ansible.builtin.uri:
+        url: "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://vault.azure.net"
+        headers:
+          Metadata: "true"
+        return_content: true
+      register: token_response
+      when:
+        - site_url != ""
+        - sites_available.stat.exists
+        - site_type_from_json == 'php'
+
+    - name: Fetch MySQL Admin Password
+      delegate_to: localhost
+      run_once: true
+      become: false
+      ansible.builtin.uri:
+        url: "https://{{ keyvault_name }}.vault.azure.net/secrets/{{ keyvault_secret }}?api-version=7.4"
+        headers:
+          Authorization: "Bearer {{ (token_response.content | from_json).access_token }}"
+        return_content: true
+      register: secret_response
+      when:
+        - site_url != ""
+        - sites_available.stat.exists
+        - site_type_from_json == 'php'
+
+    - name: Set DB root password fact
+      set_fact:
+        db_pass: "{{ (secret_response.content | from_json).value }}"
+      when:
+        - site_url != ""
+        - sites_available.stat.exists
+        - site_type_from_json == 'php'
+
+    - name: Stop PHP-FPM service for {{ site_url }}
+      ansible.builtin.systemd:
+        name: "{{ php_version_from_json }}-fpm@{{ site_url }}"
+        state: stopped
+      when:
+        - site_url != ""
+        - sites_available.stat.exists
+        - site_type_from_json == 'php'
+        - php_version_from_json != '' and php_version_from_json != 'NA'
+
+    - name: Deleting php-fpm config
+      ansible.builtin.file:
+        path: "/etc/php/{{ php_version_from_json | regex_replace('([a-zA-Z]+)([0-9.]+)', '\\2') }}/fpm/pool.d/{{ site_url }}.conf"
+        state: absent
+      when:
+        - site_url != ""
+        - sites_available.stat.exists
+        - site_type_from_json == 'php'
+        - php_version_from_json != '' and php_version_from_json != 'NA'
+
+    - name: Deleting database user
+      delegate_to: localhost
+      delegate_facts: true
+      run_once: true
+      become: false
+      community.mysql.mysql_user:
+        login_host: "{{ db_host }}"
+        login_port: "{{ db_port }}"
+        login_user: "{{ db_user }}"
+        login_password: "{{ db_pass }}"
+        name: "{{ username_from_json }}"
+        state: absent
+      when:
+        - site_url != ""
+        - sites_available.stat.exists
+        - site_type_from_json == 'php'
+        - username_from_json != ''
+
+    - name: Deleting database
+      delegate_to: localhost
+      delegate_facts: true
+      run_once: true
+      become: false
+      community.mysql.mysql_db:
+        login_host: "{{ db_host }}"
+        login_port: "{{ db_port }}"
+        login_user: "{{ db_user }}"
+        login_password: "{{ db_pass }}"
+        name: "{{ username_from_json }}"
+        state: absent
+      when:
+        - site_url != ""
+        - sites_available.stat.exists
+        - site_type_from_json == 'php'
+        - username_from_json != ''
+
+    - name: Deleting site user
+      ansible.builtin.user:
+        name: "{{ username_from_json }}"
+        state: absent
+      when:
+        - site_url != ""
+        - sites_available.stat.exists
+        - username_from_json != ''
+
+    - name: Deleting site metadata from persistent NFS store
+      delegate_to: localhost
+      run_once: true
+      become: false
+      ansible.builtin.file:
+        path: "{{ SITE_LIST_PATH }}/{{ site_url }}.json"
+        state: absent
+      when:
+        - site_url != ""
+        - sites_available.stat.exists
+
+    - name: Restart apache2
+      ansible.builtin.systemd:
+        name: apache2
+        state: restarted
+      when:
+        - site_url != ""
+        - sites_available.stat.exists

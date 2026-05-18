@@ -1,0 +1,76 @@
+---
+- name: Enable site (Unified HTML/PHP)
+  hosts: "{{ web_environment }}"
+  become: true
+  vars_files:
+    - var_files/web_vars.yml
+
+  tasks:
+    - name: Validate FQDN format
+      delegate_to: localhost
+      run_once: true
+      become: false
+      ansible.builtin.assert:
+        that:
+          - site_url is defined and site_url | length > 0
+          - site_url is match('^[a-zA-Z0-9][-a-zA-Z0-9.]*\\.[a-zA-Z]{2,11}$')
+        fail_msg: "🚨 Invalid FQDN '{{ site_url | default('') }}'!"
+
+    - name: Checking if config file exists in sites-available
+      ansible.builtin.stat:
+        path: "{{ APACHE2_AVAILABLE }}/{{ site_url }}.conf"
+      register: sites_available
+      when:
+        - site_url != ""
+
+    - name: Fail if site does not exist
+      ansible.builtin.fail:
+        msg: "🚨 The site '{{ site_url }}' does not exist in Apache sites-available!"
+      when:
+        - site_url != ""
+        - not sites_available.stat.exists
+
+    - name: Enable site in Apache
+      ansible.builtin.shell: a2ensite {{ site_url }}
+      when:
+        - site_url != ""
+        - sites_available.stat.exists
+
+    - name: Read site metadata from persistent NFS store
+      delegate_to: localhost
+      run_once: true
+      become: false
+      ansible.builtin.command:
+        cmd: "cat {{ SITE_LIST_PATH }}/{{ site_url }}.json"
+      register: site_metadata_content
+      failed_when: false
+      changed_when: false
+      when:
+        - site_url != ""
+        - sites_available.stat.exists
+
+    - name: Parse dynamic metadata facts
+      ansible.builtin.set_fact:
+        site_type_from_json: "{{ (hostvars['localhost']['site_metadata_content'].stdout | from_json).site_type if hostvars['localhost']['site_metadata_content'].rc == 0 else 'html' }}"
+        php_version_from_json: "{{ (hostvars['localhost']['site_metadata_content'].stdout | from_json).php_version if hostvars['localhost']['site_metadata_content'].rc == 0 else '' }}"
+      when:
+        - site_url != ""
+        - sites_available.stat.exists
+
+    - name: Start PHP-FPM service for {{ site_url }}
+      ansible.builtin.systemd:
+        name: "{{ php_version_from_json }}-fpm@{{ site_url }}"
+        state: started
+      when:
+        - site_url != ""
+        - sites_available.stat.exists
+        - site_type_from_json == 'php'
+        - php_version_from_json != '' and php_version_from_json != 'NA'
+
+    - name: Restart apache2
+      ansible.builtin.systemd:
+        name: apache2
+        state: restarted
+      when:
+        - site_url != ""
+        - sites_available.stat.exists
