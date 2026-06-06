@@ -86,6 +86,21 @@ make infra-init
 make infra-preprod
 ```
 
+### 2.3 Customizing for Production-Grade Deployments
+
+Before deploying to production (`make infra-prod`), review and customize the environment parameters inside [infra/terraform/platform/environments/prod.tfvars](file:///Users/chinmayjog/repos/personal/azure-vm-hosting-solution/infra/terraform/platform/environments/prod.tfvars) to fit your scaling, security, and workload requirements:
+
+*   **Compute Fleet Scalability (`vm_count` & `vm_size`)**: Increase `vm_count` (e.g. to `4` or more) to distribute load across availability zones, and upgrade `vm_size` to general-purpose instances (like `Standard_D2s_v5`) to handle high concurrency.
+*   **Production Storage Performance (`netapp_pool_size_tb` & `netapp_service_level`)**: Azure NetApp Files requires a minimum pool size of `4` TiB in production environments. Set `netapp_service_level` to `Premium` or `Ultra` to guarantee sub-millisecond IOPS for active website code execution.
+*   **Database Redundancy (`mysql_sku` & `mysql_backup_retention_days`)**: Scale the database instance using a General Purpose SKU (e.g. `GP_Standard_D2ds_v4`) and set `mysql_backup_retention_days` to `30` to enforce long-term recovery points.
+*   **Access Control & IP Hardening (`my_ip`)**: Update `my_ip` to your office or VPN egress IP range. This ensures that SSH access to the management Jumpbox and backend servers is restricted exclusively to trusted administration endpoints.
+
+To apply the production configuration, run:
+```bash
+# Deploys the high-availability Production Spoke using the prod.tfvars blueprint
+make infra-prod
+```
+
 ---
 
 ## 🚀 Phase 3: Jenkins Automation & Platform Configuration
