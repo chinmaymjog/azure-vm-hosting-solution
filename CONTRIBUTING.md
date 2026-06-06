@@ -1,57 +1,81 @@
-# Contributing & Testing Guidelines
+# Contributing Guidelines
 
-Thank you for contributing to the **Azure VM Hosting Solution**! This guide ensures that the infrastructure remains secure, the configuration is idempotent, and the solution stays production-ready.
+Thank you for contributing to the **Azure VM Hosting Solution**! This guide ensures that the infrastructure remains secure, the configuration is idempotent, and the repository conforms to our engineering standards.
 
-## 🛠️ Development Workflow
+## Branching Strategy
 
-1.  **Fork and Clone**: Create a feature branch for your changes.
-2.  **IaC Development**:
-    *   Test changes in the `infra/` directory.
-    *   Run `terraform validate` to ensure syntax correctness.
-3.  **Config Development**:
-    *   Test Ansible playbooks against a test VM.
-    *   Ensure all roles are idempotent (running twice changes nothing).
-4.  **Local Validation**:
-    *   [ ] Run `make infra-init` and verify the backend is configured.
-    *   [ ] Run `make ansible-prep` against a test inventory.
+This project follows **Trunk-Based Development (TBD)**:
+* `main` – Production-ready code. Direct commits to `main` are prohibited.
+* `feature/*` – New features (e.g., `feature/add-ansible-linting`).
+* `bugfix/*` – Defect fixes (e.g., `bugfix/mysql-connection-timeout`).
+* `hotfix/*` – Critical production fixes.
 
-## 🏗️ Adding New Components
+### Branch Rules
+- All changes must be submitted via a Pull Request (PR).
+- Keep branches short-lived (typically under 2 days) and focused on a single issue.
+- Rebase frequently on `main` to avoid drift.
 
-When adding new infrastructure modules or playbooks:
+## Commit Message Convention
 
-1.  **Infrastructure**:
-    *   Keep modules modular.
-    *   Use variables for all sensitive or environment-specific values.
-    *   Ensure all resources are tagged appropriately.
-2.  **Ansible**:
-    *   Separate logic into clear playbooks (e.g., `server_prep`, `app_deploy`).
-    *   Use `ansible-vault` for any sensitive variables if needed.
-    *   Ensure handlers are used for service restarts.
-3.  **Persistence**:
-    *   Document where data is stored (e.g., Azure Managed Disks).
-    *   Ensure backup scripts are updated to include new data paths.
+This project uses **Conventional Commits**. All commit messages must follow this format:
 
-## 🧪 Testing Checklist
+```text
+<type>: <short description>
+```
 
-Before submitting a Pull Request, verify the following:
+### Allowed Types
+- `feat`: New functionality (e.g., `feat: add database backup rotation`).
+- `fix`: Bug fixes (e.g., `fix: resolve private link resolution`).
+- `docs`: Documentation updates (e.g., `docs: update setup instructions`).
+- `refactor`: Internal code improvements without functional changes.
+- `test`: Adding or correcting tests.
+- `chore`: Maintenance tasks (e.g., dependency updates, path updates).
+- `ci`: CI/CD configuration updates.
+
+### Guidelines
+- Use present tense (e.g., "add feature", not "added feature").
+- Keep the first line under 72 characters.
+- Avoid generic messages such as "fix stuff" or "updates".
+
+## Development Workflow
+
+1. **Branch**: Create a short-lived branch from `main` (e.g., `feature/my-new-feature`).
+2. **IaC Development**:
+   - Work within the `infra/terraform/` directory.
+   - Run `terraform validate` and `terraform fmt` to ensure syntax and style.
+3. **Configuration Development**:
+   - Test Ansible playbooks inside `infra/ansible/`.
+   - Ensure all roles are idempotent (running twice changes nothing).
+4. **Local Validation**:
+   - Run `make infra-init` and verify Spoke backend configuration.
+   - Run `make jenkins-sync` to verify hosts inventory generation.
+
+## Testing & Security Checklist
+
+Before opening a Pull Request, verify the following checks:
 
 ### 1. Infrastructure (Terraform)
-- [ ] No hardcoded secrets in `.tf` files.
+- [ ] No hardcoded secrets or passwords in `.tf` or `.tfvars` files.
 - [ ] Network Security Groups (NSG) follow the principle of least privilege.
-- [ ] Public IP is only assigned if strictly necessary.
+- [ ] Public IP is only assigned to the Jumpbox VM (no public IPs on Spoke VMs).
+- [ ] Resources are tagged with correct environment and owner tags.
 
-### 2. Configuration (Ansible)
-- [ ] SSH root login is disabled during preparation.
-- [ ] Firewall (UFW) is enabled with only required ports open.
-- [ ] Application stack (WordPress) starts without manual intervention.
+### 2. Configuration (Ansible & Jenkins)
+- [ ] SSH root login is disabled on all compute hosts.
+- [ ] Host firewalls (UFW) are enabled and enforce limits.
+- [ ] Secrets are loaded dynamically via Azure Key Vault using VM Managed Identities.
 
-### 3. Operational
-- [ ] Backup scripts execute successfully and upload to Blob Storage.
-- [ ] `terraform destroy` successfully cleans up all resources.
+### 3. Verification & Cleanup
+- [ ] Backup and recovery scripts execute successfully.
+- [ ] `terraform destroy` successfully cleans up all provisioned resources.
 
-## 📝 Documentation Requirements
-- Update `HOW_TO_GUIDE.md` if you change the deployment workflow.
-- Ensure any new variables are documented in the `README.md` or as comments in code.
+## Pull Request Guidelines
+
+Every PR should contain:
+- **Summary**: Describe what was implemented.
+- **Related Issue**: Reference associated issue numbers (e.g., `Closes #42`).
+- **Testing Performed**: Detail unit/integration tests or manual checks.
+- Keep PR size under 500 lines of code changes to facilitate prompt reviews.
 
 ---
-*Questions? Reach out to [Chinmay Jog](https://github.com/chinmaymjog).*
+*Maintained by [Chinmay Jog](https://github.com/chinmaymjog).*
