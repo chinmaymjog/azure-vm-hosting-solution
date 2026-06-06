@@ -1,6 +1,7 @@
-# 🚀 Deployment Guide: Azure Shared Hosting Platform
+# 🚀 Deployment Guide
+## End-to-End Environment Provisioning & Hardening
 
-This guide covers the end-to-end deployment of the hardened architecture, from initial Azure setup to final Ansible configuration.
+This guide covers the step-by-step deployment of the hardened architecture, from initial Azure setup to final configuration.
 
 ---
 
