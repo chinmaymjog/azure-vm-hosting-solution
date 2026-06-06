@@ -1,6 +1,7 @@
-# Hardened Azure Shared Web Hosting: Site Management & Verification Guide
+# 📖 Site Management Guide
+## Provisioning Tenants, Web Configurations, and Verification
 
-This guide details the complete operation of the shared web hosting architecture. It provides clear, actionable instructions for provisioning web servers, onboarding new sites (via Jenkins or CLI), and verified secure access testing.
+This guide details the operational runbook of the shared web hosting architecture. It provides clear, actionable instructions for provisioning web servers, onboarding new sites (via Jenkins or CLI), and verified secure access testing.
 
 ---
 
