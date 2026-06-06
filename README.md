@@ -4,13 +4,14 @@ A modular, enterprise-grade Infrastructure-as-Code (IaC) repository for deployin
 
 ## Start Here
 
-Before proceeding, review the onboarding checks:
-- [x] Align repository layout to project standards.
-- [x] Read the engineering standards in `repo-standards.md`.
-- [x] Review `CONTRIBUTING.md` and Conventional Commits guidelines.
-- [x] Read `docs/project-spec.md` to understand goals and scope.
-- [x] Read `docs/architecture.md` to understand design choices and ADRs.
-- [x] Follow `HOW_TO_GUIDE.md` for environment bootstrapping.
+Before proceeding, review the environment setup checklist:
+- [ ] Review prerequisites (Azure CLI, Terraform, and Make installed).
+- [ ] Configure local variables by running `make setup`.
+- [ ] Bootstrap Azure backend state storage with `make bootstrap`.
+- [ ] Deploy the Shared Management & Secrets Hub (`make hub-init` and `make hub-deploy`).
+- [ ] Provision the Spoke Workload Subnets (`make infra-init` and `make infra-preprod`).
+- [ ] Sync automation configurations and start the Management Portal (`make jenkins-sync` and `make jenkins-up`).
+- [ ] Onboard your first hosting website by following the steps in `SITE_MANAGEMENT.md`.
 
 ## Problem Statement
 
@@ -96,10 +97,10 @@ For instructions on adding and configuring sites, refer to [SITE_MANAGEMENT.md](
 
 ## Roadmap
 
-- [x] Restructure codebase layout to project starter standards.
-- [ ] Implement automated lint checks for Ansible playbooks and Terraform code.
-- [ ] Add unit testing for template generation scripts.
-- [ ] Secure administrative portal with OAuth2 logins.
+- [ ] Automated SSL Certificate Renewal (Let's Encrypt / ACME Integration)
+- [ ] Nightly Managed Database Backup Rotation and retention policies
+- [ ] Compute Spoke Auto-Scaling based on CPU/Memory thresholds
+- [ ] Multi-region Disaster Recovery failovers for regional spokewise load balancers
 
 ## Documentation
 
