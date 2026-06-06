@@ -1,113 +1,215 @@
-# Azure Shared Hosting Platform (Hardened)
+# ☁️ Azure Shared Hosting Platform
+## Hardened Multi-Tenant Infrastructure on Azure
 
-A modular, enterprise-grade Infrastructure-as-Code (IaC) repository for deploying a secure, high-performance shared hosting platform on Azure.
+A modular, enterprise-grade Infrastructure-as-Code (IaC) repository for deploying a secure, high-performance shared hosting platform on Azure using a Hub-Spoke architecture, centralized Jumpbox management, and zero-trust credentials.
 
-## Start Here
+> [!TIP]
+> This project deploys a hardened, zero-trust shared hosting infrastructure mimicking production enterprise hosting standards.
 
-Before proceeding, review the environment setup checklist:
-- [ ] Review prerequisites (Azure CLI, Terraform, and Make installed).
-- [ ] Configure local variables by running `make setup`.
-- [ ] Bootstrap Azure backend state storage with `make bootstrap`.
-- [ ] Deploy the Shared Management & Secrets Hub (`make hub-init` and `make hub-deploy`).
-- [ ] Provision the Spoke Workload Subnets (`make infra-init` and `make infra-preprod`).
-- [ ] Sync automation configurations and start the Management Portal (`make jenkins-sync` and `make jenkins-up`).
-- [ ] Onboard your first hosting website by following the steps in `SITE_MANAGEMENT.md`.
+## 🏗️ Architecture: The "Hub-Spoke & Private DNS" Design
 
-## Problem Statement
+Like your other sandboxes, this project segregates public traffic, management planes, and database persistence. The runtime environment relies on private spokes peered with a management hub.
 
-Traditional VM hosting often suffers from manual toil, security drift, and high costs. Setting up a secure, multi-tenant web environment that isolates database secrets, secures administrative access, and handles shared volumes can be slow and error-prone. This project addresses these pain points by offering:
-- Automated, reproducible environment builds via Terraform.
-- Automated server configurations and site onboarding via Ansible.
-- Sealed secret access and centralized backups to minimize security risks.
+```mermaid
+graph TD
+    User([User]) -->|HTTPS| AFD[Azure Front Door & WAF]
+    AFD -->|Regional Ingress| ALB[Azure Public Load Balancer]
 
-## Key Features
+    subgraph "Platform Spoke VNet"
+        ALB --> VM1[Ubuntu Compute VM 01]
+        ALB --> VM2[Ubuntu Compute VM 02]
+        VM1 --> ANF[Azure NetApp Files NFS v4.1]
+        VM2 --> ANF
+        VM1 --> DB[(Azure MySQL Flex Server)]
+        VM2 --> DB
+    end
 
-- **Global Ingress & WAF**: Azure Front Door with Web Application Firewall for edge protection.
-- **Hardened Spokes**: Scales out VMs in private subnets, fronted by Azure Load Balancers.
-- **Hub-Spoke Isolation**: Separate Management Hub VNet with SSH Jumpbox, linked via private peering.
-- **Zero-Trust Secrets**: User-Assigned Managed Identities and Azure Key Vault for database password lookups.
-- **Multi-Tier Storage**: Azure NetApp Files for high-performance NFS v4.1 web volumes, plus Azure Files NFS for centralized, geo-redundant backups.
-- **Administrative Portal**: Hardened Jenkins automation server running on the Jumpbox for site creation and maintenance.
+    subgraph "Shared Management Hub VNet"
+        Jumpbox[Jenkins Jumpbox VM] -->|Ansible SSH| VM1
+        Jumpbox -->|Ansible SSH| VM2
+        Jumpbox -->|Backup Mount| NFS[Azure Files NFS Backups]
+        VM1 -->|Backup Push| NFS
+        VM2 -->|Backup Push| NFS
+        Jumpbox -->|Managed Identity| KV[Azure Key Vault]
+    end
 
-## High-Level Architecture
-
-The hosting platform is structured as a **Hub-Spoke architecture** to isolate management operations from customer-facing web traffic:
-- **Shared Hub VNet**: Contains the Management Jumpbox, Azure Key Vault, and Central Backups storage.
-- **Platform Spoke VNet**: Contains the Ubuntu VM scale set (compute fleet), Azure Database for MySQL Flexible Server, Private Load Balancer, and Azure NetApp Files volume.
-- **Cross-VNet Communication**: Secured via VNet Peering and Private Endpoints.
-
-Reference the details in [architecture.md](file:///Users/chinmayjog/repos/personal/azure-vm-hosting-solution/docs/architecture.md).
-
-## Technology Stack
-
-- **Runtime & OS**: Ubuntu 22.04 LTS VMs, PHP 8.1/8.2, Apache 2.4
-- **Infrastructure as Code**: Terraform >= 1.5.0
-- **Configuration & Deployment**: Ansible >= 2.15.0
-- **CI/CD & Portal**: Jenkins (Dockerized)
-- **Cloud Platform**: Microsoft Azure
-
-## Repository Structure
-
-Keep this tree aligned with the actual repository layout:
-
-```text
-azure-vm-hosting-solution/
-|-- .github/
-|   `-- workflows/          # CI/CD workflows and policy checks
-|-- docs/                   # Planning and execution source of truth
-|   |-- architecture.md     # Component flow and Architecture Decision Records (ADRs)
-|   |-- project-spec.md     # Goals, requirements, and scope
-|   `-- tasks.md            # Active tasks and validation tracker
-|   `-- posts/              # Blog posts and showcased articles
-|-- infra/
-|   |-- ansible/            # Ansible playbooks and web host configurations
-|   |-- jenkins/            # Jenkins Docker configuration and jobs XMLs
-|   `-- terraform/          # Terraform modules (platform and shared-hub)
-|-- .gitignore              # Ignored files (secrets, local environments)
-|-- CONTRIBUTING.md         # Contribution and branching workflows
-|-- HOW_TO_GUIDE.md         # Step-by-step setup and deployment guide
-|-- Makefile                # Operational entry point
-|-- SITE_MANAGEMENT.md      # Site provisioning and daily operations
-`-- README.md               # Main project introduction
+    DB -.->|Private Link / DNS| VM1
+    DB -.->|Private Link / DNS| VM2
 ```
 
-## Installation
+## 🚀 Overview
 
-Local setup requires:
-- Azure CLI installed and authenticated (`az login`)
-- Terraform installed
-- Make utility installed
+This lab provides an automated, VM-based hosting environment built with a platform engineering approach. It automates compute cluster scaling via Terraform, installs Apache/PHP runtimes via Ansible, and drives site creation pipelines through a hardened Jenkins management portal.
 
-Run the following command to initialize your local environment configuration:
+## System Docs (Engineering Workflow)
+
+- Project specification: [docs/project-spec.md](file:///Users/chinmayjog/repos/personal/azure-vm-hosting-solution/docs/project-spec.md)
+- Architecture decisions: [docs/architecture.md](file:///Users/chinmayjog/repos/personal/azure-vm-hosting-solution/docs/architecture.md)
+- Execution tracker: [docs/tasks.md](file:///Users/chinmayjog/repos/personal/azure-vm-hosting-solution/docs/tasks.md)
+
+---
+
+## 📋 Prerequisites
+
+### System Requirements
+*   **Operating System**: macOS or Linux.
+*   **Azure Subscription**: Active account with sufficient quotas.
+*   **Tools**: Azure CLI (`az`), Terraform >= 1.5.0, Make.
+
+Install example (macOS):
+```bash
+brew install azure-cli terraform
+az login
+```
+
+---
+
+## 🏗️ Stack Catalog
+
+The hosting environment is organized into modular infrastructure blocks:
+
+| Category | Tools | Description |
+| :--- | :--- | :--- |
+| **Global Ingress** | Azure Front Door & WAF | Edge caching, SSL offloading, and threat protection |
+| **Load Balancing** | Azure Load Balancer | Distributes inbound traffic to compute fleet spokes |
+| **Compute Engine** | Hardened Ubuntu VMs | Scalable fleet running Apache 2.4 + PHP-FPM (8.1/8.2) |
+| **Shared Storage** | Azure NetApp Files | Sub-millisecond NFS v4.1 storage for live web applications |
+| **Backup Storage** | Premium Azure Files NFS | Segmented backups path mounted globally in the Hub |
+| **Database** | Azure MySQL Flexible Server | Persistent, private database engine isolated via Private DNS |
+| **Secrets Engine** | Azure Key Vault | Zero-knowledge secret and SSH key vaults |
+| **CI/CD & Portal** | Jenkins (Dockerized) | Web-based management portal running on the Jumpbox VM |
+
+---
+
+## 🛠️ Quick Start
+
+### 1. Initialize Environment
+Choose a unique project prefix (e.g. `shrdhosting`) to prevent naming conflicts on Azure:
+```bash
+export PROJECT_NAME="shrdhosting"
+```
+
+Bootstrap your local variables:
 ```bash
 make setup
 ```
+This sanitizes the project prefix and saves it to a local `.env` file along with storage settings.
 
-Follow the complete instructions in [HOW_TO_GUIDE.md](file:///Users/chinmayjog/repos/personal/azure-vm-hosting-solution/HOW_TO_GUIDE.md).
+### 2. Bootstrap Remote State
+Create the resource group, storage account, and container for Terraform state tracking:
+```bash
+make bootstrap
+```
 
-## Usage
+### 3. Deploy Shared Hub
+Deploy the core management network, Key Vault, backups storage, and Jumpbox VM:
+```bash
+make hub-init
+make hub-deploy
+```
 
-Day-to-day operations are simplified using the root-level `Makefile`:
-- **Bootstrap Storage State**: `make bootstrap`
-- **Deploy Shared Management Hub**: `make hub-init && make hub-deploy`
-- **Deploy Workloads (Preprod/Prod)**: `make infra-init && make infra-preprod`
-- **Sync Ansible & Jenkins**: `make jenkins-sync && make jenkins-up`
+### 4. Retrieve VM Private Key
+The platform generates the SSH keys in Key Vault dynamically. Download the key locally to authenticate with your VMs:
+```bash
+# Retrieve the Key Vault name from the terraform output and run:
+az keyvault secret download --name ssh-private-key --vault-name <VAULT_NAME> --file ssh-key
+chmod 600 ssh-key
+```
 
-For instructions on adding and configuring sites, refer to [SITE_MANAGEMENT.md](file:///Users/chinmayjog/repos/personal/azure-vm-hosting-solution/SITE_MANAGEMENT.md).
+### 5. Deploy Platform Spokes
+Select your environment workspace (e.g., `preprod`, `prod`) and provision the Spoke network, load balancer, MySQL database, and NetApp files volume:
+```bash
+make infra-init
+make infra-preprod
+```
 
-## Roadmap
+### 6. Sync and Spin Up Jenkins Portal
+Synchronize your playbooks and spin up the Dockerized Jenkins server on the Jumpbox:
+```bash
+make jenkins-sync
+make jenkins-up
+```
 
-- [ ] Automated SSL Certificate Renewal (Let's Encrypt / ACME Integration)
-- [ ] Nightly Managed Database Backup Rotation and retention policies
-- [ ] Compute Spoke Auto-Scaling based on CPU/Memory thresholds
-- [ ] Multi-region Disaster Recovery failovers for regional spokewise load balancers
+### 7. Access the Hosting Portal
+Use SSH port forwarding to access the hardened Jenkins portal securely:
+```bash
+# Get JUMPBOX_IP from terraform output in shared-hub
+ssh -L 8080:localhost:8080 -i ./ssh-key azureuser@<JUMPBOX_IP>
+```
+Open your browser and log in at **`http://localhost:8080`** using:
+* **Username**: `admin`
+* **Password**: `SecureAdminPassword2026!`
 
-## Documentation
+---
 
-Link core docs:
-- [docs/project-spec.md](file:///Users/chinmayjog/repos/personal/azure-vm-hosting-solution/docs/project-spec.md): Requirements and scope source of truth.
-- [docs/architecture.md](file:///Users/chinmayjog/repos/personal/azure-vm-hosting-solution/docs/architecture.md): Design decisions and requirement mapping.
-- [docs/tasks.md](file:///Users/chinmayjog/repos/personal/azure-vm-hosting-solution/docs/tasks.md): Execution tracker and verification evidence.
+## 🔌 Operational Onboarding (Daily Operations)
+
+### Onboarding a New Site
+You can onboard new shared hosting sites using the portal or via raw Ansible CLI.
+
+#### Method A: Using Jenkins (Recommended)
+1. Go to the **Hosting Management Portal** folder on Jenkins dashboard.
+2. Select the **`site_add`** Job.
+3. Click **Build with Parameters** and input:
+   * `site_url`: The domain of the site (e.g., `mytestsite.com`).
+   * `php_version`: Target PHP runtime (e.g., `php8.1` or `php8.2`).
+4. Click **Build**.
+
+#### Method B: Manual CLI Run (Ansible)
+Run directly from the Jumpbox VM terminal:
+```bash
+ansible-playbook -i /etc/ansible/hosts /etc/ansible/playbooks/php_site_add.yml \
+  --extra-vars "site_url=mytestsite.com php_version=php8.1"
+```
+
+### Site Verification & Routing
+Test your new sites instantly using the following methods:
+
+#### 1. Command Line Verification (cURL Host Override)
+Send a request directly to the Public Load Balancer IP while overriding the HTTP Host header:
+```bash
+curl -i -H "Host: mytestsite.com" http://<LOAD_BALANCER_PUBLIC_IP>
+```
+
+#### 2. Browser Verification (Local Hosts Override)
+Add a local DNS map in your `/etc/hosts` file:
+```text
+<LOAD_BALANCER_PUBLIC_IP>  mytestsite.com
+```
+Then visit **`http://mytestsite.com`** in your browser.
+
+#### 3. Production Deployment (Azure Front Door Ingress)
+To publish the custom domain, update your Front Door configuration in [frontdoor.tf](file:///Users/chinmayjog/repos/personal/azure-vm-hosting-solution/infra/terraform/platform/frontdoor.tf):
+```terraform
+resource "azurerm_cdn_frontdoor_custom_domain" "site_domain" {
+  name                     = "mytestsite-domain"
+  cdn_frontdoor_profile_id = azurerm_cdn_frontdoor_profile.afd.id
+  host_name                = "mytestsite.com"
+  
+  tls {
+    certificate_type    = "ManagedCertificate"
+    minimum_tls_version = "TLS12"
+  }
+}
+```
+Apply the changes:
+```bash
+cd infra/terraform/platform && terraform apply -var-file="environments/preprod.tfvars" -auto-approve
+```
+
+---
+
+## 🧰 Helpful Commands
+
+```bash
+make setup          # Configure local environment prefix
+make bootstrap      # Deploy Azure state storage backend
+make hub-deploy     # Deploy Shared Hub management plane
+make infra-preprod  # Deploy preprod spoke environment
+make jenkins-sync   # Sync playbooks and update dynamic inventory
+make jenkins-up     # Spin up Jenkins container on the Jumpbox VM
+make clean          # Display cleanup instructions
+```
 
 ---
 *Maintained by [Chinmay Jog](https://github.com/chinmaymjog) | 📖 [Read my articles on Medium](https://medium.com/@chinmaymjog)*
