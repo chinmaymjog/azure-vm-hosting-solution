@@ -33,7 +33,7 @@ ssh-key.pub
 *.tfvars.json
 
 # --- Ansible Automation ---
-**/automation/ansible/hosts
+infra/ansible/hosts
 *.retry
 *.log
 
