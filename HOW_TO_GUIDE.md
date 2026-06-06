@@ -37,8 +37,8 @@ The `Makefile` and Terraform will automatically load these variables from `.env`
 
 ### 0.3 Customizing Environment Blueprints
 Before running any Terraform deployment steps, customize the infrastructure scale, network bounds, and databases by editing the environment `.tfvars` files:
-- **Pre-Production**: [infra/terraform/platform/environments/preprod.tfvars](file:///Users/chinmayjog/repos/personal/azure-vm-hosting-solution/infra/terraform/platform/environments/preprod.tfvars) (cost-optimized defaults)
-- **Production**: [infra/terraform/platform/environments/prod.tfvars](file:///Users/chinmayjog/repos/personal/azure-vm-hosting-solution/infra/terraform/platform/environments/prod.tfvars) (high-availability enterprise defaults)
+- **Pre-Production**: [infra/terraform/platform/environments/preprod.tfvars](infra/terraform/platform/environments/preprod.tfvars) (cost-optimized defaults)
+- **Production**: [infra/terraform/platform/environments/prod.tfvars](infra/terraform/platform/environments/prod.tfvars) (high-availability enterprise defaults)
 
 Key parameters you can tune in these files before deployment:
 *   `my_ip`: Change this from `*` to your office or home public IP range (e.g. `198.51.100.42/32`) to lock down administrative port access at the network firewall.
@@ -102,7 +102,7 @@ make infra-preprod
 
 ### 2.3 Customizing for Production-Grade Deployments
 
-Before deploying to production (`make infra-prod`), review and customize the environment parameters inside [infra/terraform/platform/environments/prod.tfvars](file:///Users/chinmayjog/repos/personal/azure-vm-hosting-solution/infra/terraform/platform/environments/prod.tfvars) to fit your scaling, security, and workload requirements:
+Before deploying to production (`make infra-prod`), review and customize the environment parameters inside [infra/terraform/platform/environments/prod.tfvars](infra/terraform/platform/environments/prod.tfvars) to fit your scaling, security, and workload requirements:
 
 *   **Compute Fleet Scalability (`vm_count` & `vm_size`)**: Increase `vm_count` (e.g. to `4` or more) to distribute load across availability zones, and upgrade `vm_size` to general-purpose instances (like `Standard_D2s_v5`) to handle high concurrency.
 *   **Production Storage Performance (`netapp_pool_size_tb` & `netapp_service_level`)**: Azure NetApp Files requires a minimum pool size of `4` TiB in production environments. Set `netapp_service_level` to `Premium` or `Ultra` to guarantee sub-millisecond IOPS for active website code execution.
@@ -138,7 +138,7 @@ ssh -L 8080:localhost:8080 -i ./ssh-key azureuser@<JUMPBOX_IP>
 ```
 1. Open your browser and navigate to `http://localhost:8080`
 2. **Username:** `admin`
-3. **Password:** `SecureAdminPassword2026!`
+3. **Password:** Value of your local `JENKINS_ADMIN_PASSWORD` environment variable.
 
 ### 3.3 Configure & Onboard Sites via UI
 You no longer need to run raw Ansible commands! Inside Jenkins:

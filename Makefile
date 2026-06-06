@@ -135,11 +135,15 @@ jenkins-sync:
 
 # Spin up Jenkins on the Jumpbox with Secure Credential Injection
 jenkins-up:
+	@if [ -z "$$JENKINS_ADMIN_PASSWORD" ]; then \
+		echo "❌ Error: Set JENKINS_ADMIN_PASSWORD before running make jenkins-up"; \
+		exit 1; \
+	fi
 	@SSH_KEY=$$(cat ssh-key); \
 	JUMPBOX_IP=$$(cd infra/terraform/shared-hub && terraform output -raw ssh_command_jumpbox | awk '{print $$NF}' | cut -d@ -f2); \
 	echo "🚀 Spinning up Jenkins on the Jumpbox ($$JUMPBOX_IP)..."; \
 	ssh -o StrictHostKeyChecking=no -i ./ssh-key -A azureuser@$$JUMPBOX_IP \
-		"export SSH_PRIVATE_KEY=\"$$SSH_KEY\" && cd ~/infra/jenkins && docker compose up --build -d" && \
+		"export SSH_PRIVATE_KEY=\"$$SSH_KEY\" JENKINS_ADMIN_PASSWORD=\"$$JENKINS_ADMIN_PASSWORD\" && cd ~/infra/jenkins && docker compose up --build -d" && \
 	echo "" && \
 	echo "========================================================================" && \
 	echo "🔒 SECURE PORTAL ACCESS (Jenkins UI is fully hardened & shielded)" && \
@@ -152,7 +156,7 @@ jenkins-up:
 	echo "" && \
 	echo "Step 3: Log in using the default portal credentials:" && \
 	echo "        👤 Username: admin" && \
-	echo "        🔑 Password: SecureAdminPassword2026!" && \
+	echo "        🔑 Password: value of JENKINS_ADMIN_PASSWORD from your local shell" && \
 	echo "========================================================================" && \
 	echo ""
 
