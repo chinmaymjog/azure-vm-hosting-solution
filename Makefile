@@ -82,31 +82,31 @@ bootstrap:
 
 # --- Shared Hub ---
 hub-init:
-	cd terraform/shared-hub && terraform init \
+	cd infra/terraform/shared-hub && terraform init \
 		-backend-config="resource_group_name=$(TF_STATE_RG)" \
 		-backend-config="storage_account_name=$(TF_STATE_STORAGE)"
 
 hub-deploy:
-	cd terraform/shared-hub && terraform apply \
+	cd infra/terraform/shared-hub && terraform apply \
 		-var="project_name=$(PROJECT_NAME)" \
 		-auto-approve
 
 # --- Environment Spokes ---
 infra-init:
-	cd terraform/platform && terraform init \
+	cd infra/terraform/platform && terraform init \
 		-backend-config="resource_group_name=$(TF_STATE_RG)" \
 		-backend-config="storage_account_name=$(TF_STATE_STORAGE)"
 
 infra-preprod:
-	cd terraform/platform && terraform workspace select preprod || terraform workspace new preprod
-	cd terraform/platform && terraform apply \
+	cd infra/terraform/platform && terraform workspace select preprod || terraform workspace new preprod
+	cd infra/terraform/platform && terraform apply \
 		-var-file="environments/preprod.tfvars" \
 		-var="project_name=$(PROJECT_NAME)" \
 		-auto-approve
 
 infra-prod:
-	cd terraform/platform && terraform workspace select prod || terraform workspace new prod
-	cd terraform/platform && terraform apply \
+	cd infra/terraform/platform && terraform workspace select prod || terraform workspace new prod
+	cd infra/terraform/platform && terraform apply \
 		-var-file="environments/prod.tfvars" \
 		-var="project_name=$(PROJECT_NAME)" \
 		-auto-approve
@@ -116,30 +116,30 @@ infra-prod:
 # Sync Jenkins and Ansible logic for all environments
 jenkins-sync:
 	@echo "📡 Generating Dynamic Inventory for All Environments..."
-	@echo "[local]\nlocalhost ansible_connection=local\n" > automation/ansible/hosts
+	@echo "[local]\nlocalhost ansible_connection=local\n" > infra/ansible/hosts
 	@for env in preprod prod; do \
 		if [ "$$env" = "preprod" ]; then group="preproduction"; else group="production"; fi; \
 		echo "Fetching IPs for $$env..."; \
-		WEB_IPS=$$(cd terraform/platform && terraform workspace select $$env >/dev/null 2>&1 && terraform output -json vm_private_ips | jq -r '.[]' 2>/dev/null || echo ""); \
-		echo "[$$group]" >> automation/ansible/hosts; \
+		WEB_IPS=$$(cd infra/terraform/platform && terraform workspace select $$env >/dev/null 2>&1 && terraform output -json vm_private_ips | jq -r '.[]' 2>/dev/null || echo ""); \
+		echo "[$$group]" >> infra/ansible/hosts; \
 		count=1; \
 		for ip in $$WEB_IPS; do \
-			echo "webvm-ubu-shrd01-$$env-we-0$$count ansible_host=$$ip" >> automation/ansible/hosts; \
+			echo "webvm-ubu-shrd01-$$env-we-0$$count ansible_host=$$ip" >> infra/ansible/hosts; \
 			count=$$((count+1)); \
 		done; \
-		echo "" >> automation/ansible/hosts; \
+		echo "" >> infra/ansible/hosts; \
 	done
-	@echo "[all:vars]\nansible_user=azureuser" >> automation/ansible/hosts
+	@echo "[all:vars]\nansible_user=azureuser" >> infra/ansible/hosts
 	@echo "📡 Syncing Automation Stack to Jumpbox..."
-	@rsync -avz -e "ssh -o StrictHostKeyChecking=no -i ./ssh-key" --exclude=".DS_Store" ./automation/ azureuser@$$(cd terraform/shared-hub && terraform output -raw ssh_command_jumpbox | awk '{print $$NF}' | cut -d@ -f2):~/automation/
+	@rsync -avz -e "ssh -o StrictHostKeyChecking=no -i ./ssh-key" --exclude=".DS_Store" ./infra/ azureuser@$$(cd infra/terraform/shared-hub && terraform output -raw ssh_command_jumpbox | awk '{print $$NF}' | cut -d@ -f2):~/infra/
 
 # Spin up Jenkins on the Jumpbox with Secure Credential Injection
 jenkins-up:
 	@SSH_KEY=$$(cat ssh-key); \
-	JUMPBOX_IP=$$(cd terraform/shared-hub && terraform output -raw ssh_command_jumpbox | awk '{print $$NF}' | cut -d@ -f2); \
+	JUMPBOX_IP=$$(cd infra/terraform/shared-hub && terraform output -raw ssh_command_jumpbox | awk '{print $$NF}' | cut -d@ -f2); \
 	echo "🚀 Spinning up Jenkins on the Jumpbox ($$JUMPBOX_IP)..."; \
 	ssh -o StrictHostKeyChecking=no -i ./ssh-key -A azureuser@$$JUMPBOX_IP \
-		"export SSH_PRIVATE_KEY=\"$$SSH_KEY\" && cd ~/automation/jenkins && docker compose up --build -d" && \
+		"export SSH_PRIVATE_KEY=\"$$SSH_KEY\" && cd ~/infra/jenkins && docker compose up --build -d" && \
 	echo "" && \
 	echo "========================================================================" && \
 	echo "🔒 SECURE PORTAL ACCESS (Jenkins UI is fully hardened & shielded)" && \
@@ -159,12 +159,12 @@ jenkins-up:
 # Destroy infrastructure for a specific environment
 infra-destroy:
 	@if [ -z "$(ENV)" ]; then echo "❌ Error: Please specify ENV=preprod or ENV=prod"; exit 1; fi
-	cd terraform/platform && terraform workspace select $(ENV) || terraform workspace new $(ENV)
-	cd terraform/platform && terraform destroy -var-file="environments/$(ENV).tfvars" -var="project_name=$(PROJECT_NAME)" -auto-approve
+	cd infra/terraform/platform && terraform workspace select $(ENV) || terraform workspace new $(ENV)
+	cd infra/terraform/platform && terraform destroy -var-file="environments/$(ENV).tfvars" -var="project_name=$(PROJECT_NAME)" -auto-approve
 
 # Destroy the Hub (Run this LAST)
 hub-destroy:
-	cd terraform/shared-hub && terraform destroy -var="project_name=$(PROJECT_NAME)" -auto-approve
+	cd infra/terraform/shared-hub && terraform destroy -var="project_name=$(PROJECT_NAME)" -auto-approve
 
 clean:
 	@echo "Cleanup targets: 'make infra-destroy ENV=...' or 'make hub-destroy'"
