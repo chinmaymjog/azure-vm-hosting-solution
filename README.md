@@ -43,9 +43,9 @@ This lab provides an automated, VM-based hosting environment built with a platfo
 
 ## System Docs (Engineering Workflow)
 
-- Project specification: [docs/project-spec.md](file:///Users/chinmayjog/repos/personal/azure-vm-hosting-solution/docs/project-spec.md)
-- Architecture decisions: [docs/architecture.md](file:///Users/chinmayjog/repos/personal/azure-vm-hosting-solution/docs/architecture.md)
-- Execution tracker: [docs/tasks.md](file:///Users/chinmayjog/repos/personal/azure-vm-hosting-solution/docs/tasks.md)
+- Project specification: [docs/project-spec.md](docs/project-spec.md)
+- Architecture decisions: [docs/architecture.md](docs/architecture.md)
+- Execution tracker: [docs/tasks.md](docs/tasks.md)
 
 ---
 
@@ -138,7 +138,7 @@ ssh -L 8080:localhost:8080 -i ./ssh-key azureuser@<JUMPBOX_IP>
 ```
 Open your browser and log in at **`http://localhost:8080`** using:
 * **Username**: `admin`
-* **Password**: `SecureAdminPassword2026!`
+* **Password**: Value of your local `JENKINS_ADMIN_PASSWORD` environment variable.
 
 ---
 
@@ -179,7 +179,7 @@ Add a local DNS map in your `/etc/hosts` file:
 Then visit **`http://mytestsite.com`** in your browser.
 
 #### 3. Production Deployment (Azure Front Door Ingress)
-To publish the custom domain, update your Front Door configuration in [frontdoor.tf](file:///Users/chinmayjog/repos/personal/azure-vm-hosting-solution/infra/terraform/platform/frontdoor.tf):
+To publish the custom domain, update your Front Door configuration in [frontdoor.tf](infra/terraform/platform/frontdoor.tf):
 ```terraform
 resource "azurerm_cdn_frontdoor_custom_domain" "site_domain" {
   name                     = "mytestsite-domain"
