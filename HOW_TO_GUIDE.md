@@ -35,7 +35,21 @@ The `Makefile` and Terraform will automatically load these variables from `.env`
 
 ---
 
-### 0.3 Zero-Trust Preparation
+### 0.3 Customizing Environment Blueprints
+Before running any Terraform deployment steps, customize the infrastructure scale, network bounds, and databases by editing the environment `.tfvars` files:
+- **Pre-Production**: [infra/terraform/platform/environments/preprod.tfvars](file:///Users/chinmayjog/repos/personal/azure-vm-hosting-solution/infra/terraform/platform/environments/preprod.tfvars) (cost-optimized defaults)
+- **Production**: [infra/terraform/platform/environments/prod.tfvars](file:///Users/chinmayjog/repos/personal/azure-vm-hosting-solution/infra/terraform/platform/environments/prod.tfvars) (high-availability enterprise defaults)
+
+Key parameters you can tune in these files before deployment:
+*   `my_ip`: Change this from `*` to your office or home public IP range (e.g. `198.51.100.42/32`) to lock down administrative port access at the network firewall.
+*   `vnet_address_space`: Set the Spoke VNet subnet prefix to avoid overlaps with your corporate or existing cloud networks.
+*   `vm_count` & `vm_size`: Sizing and quantity of compute web VM nodes.
+*   `mysql_sku` & `mysql_storage_gb`: Performance tier and storage size for the MySQL database.
+*   `netapp_pool_size_tb` & `netapp_service_level`: Capacity and speed of the active shared NetApp volume (NFS). Note that Azure NetApp capacity pools require a minimum of `4` TiB in production settings.
+
+---
+
+### 0.4 Zero-Trust Preparation
 You no longer need to generate SSH keys manually. The platform now automatically generates a secure key pair and vaults it in Azure during the Hub deployment.
 
 ---
