@@ -46,6 +46,6 @@ mysql_backup_retention_days = 30                     # Hardened 30-day transacti
 # ------------------------------------------------------------------------------
 vnet_address_space = ["10.100.0.0/16"]    # Custom isolated virtual network range for production segment
 subnet_newbits     = 8                    # Bit size multiplier for platform subnets
-hub_address_space  = ["10.200.0.0/16"]    # Production administrative Hub VNet
+hub_address_space  = ["10.10.0.0/16"]     # The actual address space of the shared management Hub
 jumpbox_size       = "Standard_B2s"       # Premium size jumpbox hosting Ansible control-plane engines
 my_ip              = "8.8.8.8"            # Restricted home/office corporate IP range for admin SSH access
