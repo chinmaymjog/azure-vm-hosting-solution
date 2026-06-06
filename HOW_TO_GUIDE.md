@@ -35,7 +35,21 @@ The `Makefile` and Terraform will automatically load these variables from `.env`
 
 ---
 
-### 0.3 Zero-Trust Preparation
+### 0.3 Customizing Environment Blueprints
+Before running any Terraform deployment steps, customize the infrastructure scale, network bounds, and databases by editing the environment `.tfvars` files:
+- **Pre-Production**: [infra/terraform/platform/environments/preprod.tfvars](infra/terraform/platform/environments/preprod.tfvars) (cost-optimized defaults)
+- **Production**: [infra/terraform/platform/environments/prod.tfvars](infra/terraform/platform/environments/prod.tfvars) (high-availability enterprise defaults)
+
+Key parameters you can tune in these files before deployment:
+*   `my_ip`: Change this from `*` to your office or home public IP range (e.g. `198.51.100.42/32`) to lock down administrative port access at the network firewall.
+*   `vnet_address_space`: Set the Spoke VNet subnet prefix to avoid overlaps with your corporate or existing cloud networks.
+*   `vm_count` & `vm_size`: Sizing and quantity of compute web VM nodes.
+*   `mysql_sku` & `mysql_storage_gb`: Performance tier and storage size for the MySQL database.
+*   `netapp_pool_size_tb` & `netapp_service_level`: Capacity and speed of the active shared NetApp volume (NFS). Note that Azure NetApp capacity pools require a minimum of `4` TiB in production settings.
+
+---
+
+### 0.4 Zero-Trust Preparation
 You no longer need to generate SSH keys manually. The platform now automatically generates a secure key pair and vaults it in Azure during the Hub deployment.
 
 ---
@@ -56,11 +70,13 @@ This will securely execute the Azure CLI commands in the background using your u
 
 ### 2.1 Shared Management & Backup Hub
 The Hub contains the Jumpbox, the management network, and the Shared Backup Share. It persists across environment cycles.
-```bash
-# Initialize and link to your state storage
-make hub-init
 
-### 1.2 Deploy the Shared Hub
+1. **Initialize and link to your state storage:**
+```bash
+make hub-init
+```
+
+2. **Deploy the Shared Hub:**
 This step creates your management network, the Ansible Jumpbox, your backup storage, and **generates your secure SSH keys**.
 
 ```bash
@@ -86,6 +102,21 @@ make infra-init
 make infra-preprod
 ```
 
+### 2.3 Customizing for Production-Grade Deployments
+
+Before deploying to production (`make infra-prod`), review and customize the environment parameters inside [infra/terraform/platform/environments/prod.tfvars](infra/terraform/platform/environments/prod.tfvars) to fit your scaling, security, and workload requirements:
+
+*   **Compute Fleet Scalability (`vm_count` & `vm_size`)**: Increase `vm_count` (e.g. to `4` or more) to distribute load across availability zones, and upgrade `vm_size` to general-purpose instances (like `Standard_D2s_v5`) to handle high concurrency.
+*   **Production Storage Performance (`netapp_pool_size_tb` & `netapp_service_level`)**: Azure NetApp Files requires a minimum pool size of `4` TiB in production environments. Set `netapp_service_level` to `Premium` or `Ultra` to guarantee sub-millisecond IOPS for active website code execution.
+*   **Database Redundancy (`mysql_sku` & `mysql_backup_retention_days`)**: Scale the database instance using a General Purpose SKU (e.g. `GP_Standard_D2ds_v4`) and set `mysql_backup_retention_days` to `30` to enforce long-term recovery points.
+*   **Access Control & IP Hardening (`my_ip`)**: Update `my_ip` to your office or VPN egress IP range. This ensures that SSH access to the management Jumpbox and backend servers is restricted exclusively to trusted administration endpoints.
+
+To apply the production configuration, run:
+```bash
+# Deploys the high-availability Production Spoke using the prod.tfvars blueprint
+make infra-prod
+```
+
 ---
 
 ## 🚀 Phase 3: Jenkins Automation & Platform Configuration
@@ -109,24 +140,24 @@ ssh -L 8080:localhost:8080 -i ./ssh-key azureuser@<JUMPBOX_IP>
 ```
 1. Open your browser and navigate to `http://localhost:8080`
 2. **Username:** `admin`
-3. **Password:** `SecureAdminPassword2026!`
+3. **Password:** Value of your local `JENKINS_ADMIN_PASSWORD` environment variable.
 
 ### 3.3 Configure & Onboard Sites via UI
 You no longer need to run raw Ansible commands! Inside Jenkins:
 - Navigate to the **Hosting Management Portal** folder.
-- Run the **Setup Web Stack** job to install Nginx and PHP across your environments using the dynamic dropdowns.
+- Run the **Setup Web Stack** job to install Apache and PHP across your environments using the dynamic dropdowns.
 - Run the **Onboard Site** job to automatically provision databases, users, VHosts, and NetApp directories via a simple UI!
 
-### 3.3 Deploy Your Code
+### 3.4 Deploy Your Code
 Once onboarded, deploy your code directly to the high-performance NetApp volume:
 ```bash
 # Example: Deploying a static/PHP app
 scp -i ./ssh-key -r ./my-code/* azureuser@<VM_IP>:/netappwebsites/<SITE_NAME>/public/
 ```
 
-### 3.4 Test Your Site
+### 3.5 Test Your Site
 Since we haven't configured public DNS yet, you can test your site by adding an entry to your local machine's hosts file:
-1.  **Get the Front Door IP** or the **Load Balancer Public IP**.
+1.  **Get the Load Balancer Public IP**.
 2.  **Add to `/etc/hosts` (macOS/Linux)**:
     ```bash
     <PUBLIC_IP>  mysite.preprod.local
@@ -204,7 +235,7 @@ graph TD
 ## 🔐 Secret Management & Access
 The platform uses **Azure Key Vault** to manage all sensitive information.
 - **Passwords**: Generated randomly during `make hub-deploy`.
-- **SSH Keys**: The private key is generated by Terraform and stored in the Vault. No local `ssh-key` file is needed for deployment.
+- **SSH Keys**: The private key is generated by Terraform and stored in the Vault. For operator access, download it locally as `ssh-key` and keep it out of source control.
 - **Retrieval**: To log in, you must download the private key from your Vault:
     ```bash
     # Get your Vault Name from the hub-deploy output

@@ -30,5 +30,4 @@ USER jenkins
 # Copy the configuration file
 COPY --chown=jenkins:jenkins casc.yaml /var/jenkins_home/casc.yaml
 
-# Set default env variable for local testing (Override this in production!)
-ENV JENKINS_ADMIN_PASSWORD="MySuperSecretPassword123!"
+# JENKINS_ADMIN_PASSWORD must be injected at runtime by the caller.
