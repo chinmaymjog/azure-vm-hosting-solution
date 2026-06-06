@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 services:
   jenkins:
     build: .
@@ -7,9 +7,8 @@ services:
       - "8080:8080"
       - "50000:50000"
     environment:
-      # In production on Azure, this could be pulled from Key Vault
-      # and passed into the docker run command by Terraform/cloud-init
-      - JENKINS_ADMIN_PASSWORD=SecureAdminPassword2026!
+      # Inject from the jumpbox shell environment at runtime.
+      - JENKINS_ADMIN_PASSWORD=${JENKINS_ADMIN_PASSWORD}
       # We pipe this directly into the container from the Jumpbox memory
       - SSH_PRIVATE_KEY=${SSH_PRIVATE_KEY}
     volumes:

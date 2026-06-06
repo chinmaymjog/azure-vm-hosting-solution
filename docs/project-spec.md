@@ -68,5 +68,5 @@ This project implements an automated, secure, and enterprise-grade hosting solut
 
 # References
 
-- [HOW_TO_GUIDE.md](file:///Users/chinmayjog/repos/personal/azure-vm-hosting-solution/HOW_TO_GUIDE.md)
-- [SITE_MANAGEMENT.md](file:///Users/chinmayjog/repos/personal/azure-vm-hosting-solution/SITE_MANAGEMENT.md)
+- [HOW_TO_GUIDE.md](../HOW_TO_GUIDE.md)
+- [SITE_MANAGEMENT.md](../SITE_MANAGEMENT.md)
