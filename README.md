@@ -53,7 +53,6 @@ Keep this tree aligned with the actual repository layout:
 azure-vm-hosting-solution/
 |-- .github/
 |   `-- workflows/          # CI/CD workflows and policy checks
-|-- config/                 # Non-secret config templates
 |-- docs/                   # Planning and execution source of truth
 |   |-- architecture.md     # Component flow and Architecture Decision Records (ADRs)
 |   |-- project-spec.md     # Goals, requirements, and scope
@@ -63,9 +62,6 @@ azure-vm-hosting-solution/
 |   |-- ansible/            # Ansible playbooks and web host configurations
 |   |-- jenkins/            # Jenkins Docker configuration and jobs XMLs
 |   `-- terraform/          # Terraform modules (platform and shared-hub)
-|-- scripts/                # Helper and automation scripts
-|-- src/                    # Code/source directories (placeholder)
-|-- tests/                  # Integration and system tests
 |-- .gitignore              # Ignored files (secrets, local environments)
 |-- CONTRIBUTING.md         # Contribution and branching workflows
 |-- HOW_TO_GUIDE.md         # Step-by-step setup and deployment guide
