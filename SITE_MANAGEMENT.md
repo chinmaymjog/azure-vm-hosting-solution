@@ -17,7 +17,7 @@ make jenkins-sync
 ```
 
 ### B. What is Provisioned
-The Ansible playbook ([`server_web_configuration.yml`](file:///Users/chinmayjog/repos/personal/azure-vm-hosting-solution/automation/ansible/playbooks/server_web_configuration.yml)) establishes:
+The Ansible playbook ([`server_web_configuration.yml`](file:///Users/chinmayjog/repos/personal/azure-vm-hosting-solution/infra/ansible/playbooks/server_web_configuration.yml)) establishes:
 * **Web Stack:** Apache2 (`mpm_event` mode) + PHP-FPM integration via `mod_fcgid` and `proxy_fcgi`.
 * **Security & Hardening:** Enforces TLS redirect rules, registers systemd template units for isolated multi-PHP environments, and locks down directory permissions.
 * **Shared Storage Structure:** Mounts and configures the distributed NetApp fileshare path under:
@@ -91,7 +91,7 @@ To access and test your shared website interactively in a web browser without bu
 ---
 
 ### 🌐 3. Production Deployment (Adding Custom Domains to Front Door)
-To expose your website publicly to the open internet through the Azure Front Door Edge WAF, update your Terraform configuration in [`frontdoor.tf`](file:///Users/chinmayjog/repos/personal/azure-vm-hosting-solution/terraform/platform/frontdoor.tf):
+To expose your website publicly to the open internet through the Azure Front Door Edge WAF, update your Terraform configuration in [`frontdoor.tf`](file:///Users/chinmayjog/repos/personal/azure-vm-hosting-solution/infra/terraform/platform/frontdoor.tf):
 
 1. **Register the custom domain resource:**
    ```terraform
@@ -117,6 +117,6 @@ To expose your website publicly to the open internet through the Azure Front Doo
    ```
 3. **Apply the Terraform change:**
    ```bash
-   cd terraform/platform && terraform apply -var-file="environments/preprod.tfvars" -auto-approve
+   cd infra/terraform/platform && terraform apply -var-file="environments/preprod.tfvars" -auto-approve
    ```
 4. **DNS Activation:** In your DNS registrar (e.g., GoDaddy, Cloudflare), add the dynamic `_dnsauth` TXT record generated in your Azure Portal to complete Front Door ownership validation.
