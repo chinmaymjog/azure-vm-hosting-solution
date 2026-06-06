@@ -15,10 +15,7 @@
 
 ## Now (Do First)
 
-| ID | Task | Requirement IDs | Owner | Verification | Status |
-| -- | ---- | --------------- | ----- | ------------ | ------ |
-| T-007 | Create task tracking tracker | FR-001 | Human+AI | Check file existence | In Progress |
-| T-008 | Update links and paths in HOW_TO_GUIDE & SITE_MANAGEMENT | FR-003 / NFR-003 | Human+AI | Review markdown links | Not Started |
+No active tasks.
 
 ## Done
 
@@ -30,6 +27,8 @@
 | T-004 | 2026-06-06 | FR-001 | `cat CONTRIBUTING.md` | Conventional commit guidelines added |
 | T-005 | 2026-06-06 | FR-001 | File review | Spec created with requirement IDs |
 | T-006 | 2026-06-06 | FR-001 | File review | Architecture doc created with ADRs |
+| T-007 | 2026-06-06 | FR-001 | File review | Created task tracking tracker |
+| T-008 | 2026-06-06 | FR-003 / NFR-003 | Markdown check | Updated paths/links in HOW_TO_GUIDE & SITE_MANAGEMENT |
 
 ## Quick Coverage Check
 
