@@ -95,32 +95,16 @@ To access and test your shared website interactively in a web browser without bu
 ---
 
 ### 🌐 3. Production Deployment (Adding Custom Domains to Front Door)
-To expose your website publicly to the open internet through the Azure Front Door Edge WAF, update your Terraform configuration in [`frontdoor.tf`](infra/terraform/platform/frontdoor.tf):
+For multiple hosted sites, treat Front Door custom domains as an operational workflow per site instead of repeatedly editing one static Terraform example.
 
-1. **Register the custom domain resource:**
-   ```terraform
-   resource "azurerm_cdn_frontdoor_custom_domain" "site_domain" {
-     name                     = "mysharedsite-domain"
-     cdn_frontdoor_profile_id = azurerm_cdn_frontdoor_profile.afd.id
-     host_name                = "mysharedsite.com"
-     
-     tls {
-       certificate_type    = "ManagedCertificate"
-       minimum_tls_version = "TLS12"
-     }
-   }
-   ```
-2. **Bind the domain to the default route:**
-   ```terraform
-   resource "azurerm_cdn_frontdoor_route" "route" {
-     # ... other route settings ...
-     cdn_frontdoor_custom_domain_ids = [
-       azurerm_cdn_frontdoor_custom_domain.site_domain.id
-     ]
-   }
-   ```
-3. **Apply the Terraform change:**
-   ```bash
-   cd infra/terraform/platform && terraform apply -var-file="environments/preprod.tfvars" -auto-approve
-   ```
-4. **DNS Activation:** In your DNS registrar (e.g., GoDaddy, Cloudflare), add the dynamic `_dnsauth` TXT record generated in your Azure Portal to complete Front Door ownership validation.
+Recommended approach:
+
+1. Add the site in this platform first (`site_add`) and validate it using the load balancer host-header method.
+2. For each production domain, onboard it in Azure Front Door using the official Microsoft workflow:
+    - Add custom domain: [How to add a custom domain in Azure Front Door Standard/Premium](https://learn.microsoft.com/azure/frontdoor/standard-premium/how-to-add-custom-domain)
+    - Configure HTTPS/TLS: [Configure HTTPS for custom domains](https://learn.microsoft.com/azure/frontdoor/standard-premium/how-to-configure-https-custom-domain)
+3. Associate the domain with the correct route/origin group for that site.
+4. Complete DNS validation (`_dnsauth` TXT and CNAME records) at your registrar.
+5. Confirm the domain serves traffic through Front Door before announcing go-live.
+
+Tip for scale: maintain a domain-to-site mapping inventory (domain, environment, Front Door route, origin group, certificate status) so onboarding dozens of sites stays deterministic.
