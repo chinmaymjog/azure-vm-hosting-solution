@@ -13,7 +13,7 @@ variable "location" {
 variable "tags" {
   description = "Tags for the Hub"
   type        = map(string)
-  default     = {
+  default = {
     Project   = "Shared Hosting Platform"
     Layer     = "Management Hub"
     ManagedBy = "Terraform"

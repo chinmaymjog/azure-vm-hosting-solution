@@ -20,10 +20,10 @@ variable "environment" {
 variable "tags" {
   description = "A mapping of tags to assign to the resources"
   type        = map(string)
-  default     = {
-    Project     = "Shared Hosting Platform"
-    ManagedBy   = "Terraform"
-    Owner       = "Chinmay Jog"
+  default = {
+    Project   = "Shared Hosting Platform"
+    ManagedBy = "Terraform"
+    Owner     = "Chinmay Jog"
   }
 }
 

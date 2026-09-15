@@ -46,7 +46,7 @@ resource "azurerm_cdn_frontdoor_route" "route" {
   name                          = "default-route"
   cdn_frontdoor_endpoint_id     = azurerm_cdn_frontdoor_endpoint.endpoint.id
   cdn_frontdoor_origin_group_id = azurerm_cdn_frontdoor_origin_group.origin_group.id
-  cdn_frontdoor_origin_ids       = [azurerm_cdn_frontdoor_origin.origin.id]
+  cdn_frontdoor_origin_ids      = [azurerm_cdn_frontdoor_origin.origin.id]
 
   supported_protocols    = ["Http", "Https"]
   patterns_to_match      = ["/*"]
@@ -59,15 +59,15 @@ output "frontdoor_url" {
 }
 
 resource "azurerm_cdn_frontdoor_firewall_policy" "waf" {
-  name                              = "wafshared${var.environment}"
-  resource_group_name               = azurerm_resource_group.rg.name
-  sku_name                          = var.afd_sku
-  enabled                           = true
-  mode                              = "Detection"
-  
+  name                = "wafshared${var.environment}"
+  resource_group_name = azurerm_resource_group.rg.name
+  sku_name            = var.afd_sku
+  enabled             = true
+  mode                = "Detection"
+
   # Note: managed_rule blocks require Premium_AzureFrontDoor SKU.
   # If using Standard SKU, only custom rules are supported.
-  
+
   tags = var.tags
 }
 

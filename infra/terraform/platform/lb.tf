@@ -26,7 +26,7 @@ resource "azurerm_lb_backend_address_pool" "backend" {
 }
 
 resource "azurerm_network_interface_backend_address_pool_association" "assoc" {
-  count                   = 2
+  count                   = var.vm_count
   network_interface_id    = azurerm_network_interface.nics[count.index].id
   ip_configuration_name   = "internal"
   backend_address_pool_id = azurerm_lb_backend_address_pool.backend.id

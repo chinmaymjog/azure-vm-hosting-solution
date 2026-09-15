@@ -25,9 +25,9 @@ resource "azurerm_subnet" "snet_hub_mgmt" {
 
 # --- 🔐 Shared Key Vault ---
 resource "azurerm_key_vault" "hub_vault" {
-  name                        = "kv-${var.project_name}-${lower(random_id.storage_suffix.hex)}"
-  location                    = azurerm_resource_group.hub_rg.location
-  resource_group_name         = azurerm_resource_group.hub_rg.name
+  name                            = "kv-${var.project_name}-${lower(random_id.storage_suffix.hex)}"
+  location                        = azurerm_resource_group.hub_rg.location
+  resource_group_name             = azurerm_resource_group.hub_rg.name
   enabled_for_disk_encryption     = true
   enabled_for_deployment          = true
   enabled_for_template_deployment = true
@@ -66,10 +66,10 @@ resource "azurerm_key_vault" "hub_vault" {
   network_acls {
     default_action = "Deny"
     bypass         = "AzureServices"
-    
+
     # Allow the Hub Management Subnet
     virtual_network_subnet_ids = [azurerm_subnet.snet_hub_mgmt.id]
-    
+
     # Allow the local machine running Terraform
     ip_rules = [data.http.client_ip.response_body]
   }
@@ -129,14 +129,14 @@ data "http" "client_ip" {
 }
 
 resource "azurerm_storage_account" "st_backups" {
-  name                     = "stbackup${lower(random_id.storage_suffix.hex)}"
-  resource_group_name      = azurerm_resource_group.hub_rg.name
-  location                 = azurerm_resource_group.hub_rg.location
-  account_tier             = "Premium"
-  account_replication_type = "LRS"
-  account_kind             = "FileStorage"
+  name                       = "stbackup${lower(random_id.storage_suffix.hex)}"
+  resource_group_name        = azurerm_resource_group.hub_rg.name
+  location                   = azurerm_resource_group.hub_rg.location
+  account_tier               = "Premium"
+  account_replication_type   = "LRS"
+  account_kind               = "FileStorage"
   https_traffic_only_enabled = false # Required for NFS
-  
+
   network_rules {
     default_action             = "Deny"
     virtual_network_subnet_ids = [azurerm_subnet.snet_hub_mgmt.id]
