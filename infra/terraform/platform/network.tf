@@ -38,20 +38,4 @@ resource "azurerm_subnet" "snet_database" {
   }
 }
 
-# Subnet for NetApp Files (Requires Delegation)
-resource "azurerm_subnet" "snet_netapp" {
-  name                 = "snet-netapp"
-  resource_group_name  = azurerm_resource_group.rg.name
-  virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefixes     = [cidrsubnet(var.vnet_address_space[0], var.subnet_newbits, 3)]
-
-  delegation {
-    name = "netapp"
-    service_delegation {
-      name    = "Microsoft.Netapp/volumes"
-      actions = ["Microsoft.Network/virtualNetworks/subnets/join/action"]
-    }
-  }
-}
-
 # Subnets are associated with NSGs in nsg.tf

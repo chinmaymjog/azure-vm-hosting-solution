@@ -8,7 +8,7 @@ A modular, enterprise-grade Infrastructure-as-Code (IaC) repository for deployin
 
 ## 🏗️ Architecture: The "Hub-Spoke & Private DNS" Design
 
-Like your other sandboxes, this project segregates public traffic, management planes, and database persistence. The runtime environment relies on private spokes peered with a management hub.
+Like `cloudops-sandbox` and `k3s-argocd-sandbox`, this project segregates public traffic, management planes, and database persistence. The runtime environment relies on private spokes peered with a management hub.
 
 ```mermaid
 graph TD
@@ -18,8 +18,8 @@ graph TD
     subgraph "Platform Spoke VNet"
         ALB --> VM1[Ubuntu Compute VM 01]
         ALB --> VM2[Ubuntu Compute VM 02]
-        VM1 --> ANF[Azure NetApp Files NFS v4.1]
-        VM2 --> ANF
+        VM1 --> AFS[Azure Files Premium NFS]
+        VM2 --> AFS
         VM1 --> DB[(Azure MySQL Flex Server)]
         VM2 --> DB
     end
@@ -52,9 +52,9 @@ This lab provides an automated, VM-based hosting environment built with a platfo
 ## 📋 Prerequisites
 
 ### System Requirements
-*   **Operating System**: macOS or Linux.
-*   **Azure Subscription**: Active account with sufficient quotas.
-*   **Tools**: Azure CLI (`az`), Terraform >= 1.5.0, Make.
+* **Operating System**: macOS or Linux.
+* **Azure Subscription**: Active account with sufficient quotas.
+* **Tools**: Azure CLI (`az`), Terraform >= 1.5.0, Make.
 
 Install example (macOS):
 ```bash
@@ -73,11 +73,18 @@ The hosting environment is organized into modular infrastructure blocks:
 | **Global Ingress** | Azure Front Door & WAF | Edge caching, SSL offloading, and threat protection |
 | **Load Balancing** | Azure Load Balancer | Distributes inbound traffic to compute fleet spokes |
 | **Compute Engine** | Hardened Ubuntu VMs | Scalable fleet running Apache 2.4 + PHP-FPM (8.1/8.2) |
-| **Shared Storage** | Azure NetApp Files | Sub-millisecond NFS v4.1 storage for live web applications |
+| **Website Storage** | Azure Files Premium NFS | Shared NFS v4.1 storage for live web applications |
 | **Backup Storage** | Premium Azure Files NFS | Segmented backups path mounted globally in the Hub |
 | **Database** | Azure MySQL Flexible Server | Persistent, private database engine isolated via Private DNS |
 | **Secrets Engine** | Azure Key Vault | Zero-knowledge secret and SSH key vaults |
 | **CI/CD & Portal** | Jenkins (Dockerized) | Web-based management portal running on the Jumpbox VM |
+
+`main` deploys a single environment on Azure Files Premium NFS to keep
+first-deploy cost and quota barriers low. Want Azure NetApp Files'
+sub-millisecond latency, or a preprod+prod split? Check out the
+[`advanced` branch](https://github.com/chinmaymjog/azure-vm-hosting-solution/tree/advanced)
+- the same platform with both, plus the Terraform workspaces to manage
+them.
 
 ---
 
@@ -116,11 +123,11 @@ az keyvault secret download --name ssh-private-key --vault-name <VAULT_NAME> --f
 chmod 600 ssh-key
 ```
 
-### 5. Deploy Platform Spokes
-Select your environment workspace (e.g., `preprod`, `prod`) and provision the Spoke network, load balancer, MySQL database, and NetApp files volume:
+### 5. Deploy the Platform Spoke
+Provision the Spoke network, load balancer, MySQL database, and website storage:
 ```bash
 make infra-init
-make infra-preprod
+make infra-deploy
 ```
 
 ### 6. Sync and Spin Up Jenkins Portal
@@ -194,7 +201,7 @@ resource "azurerm_cdn_frontdoor_custom_domain" "site_domain" {
 ```
 Apply the changes:
 ```bash
-cd infra/terraform/platform && terraform apply -var-file="environments/preprod.tfvars" -auto-approve
+cd infra/terraform/platform && terraform apply -var-file="environments/main.tfvars" -auto-approve
 ```
 
 ---
@@ -205,7 +212,7 @@ cd infra/terraform/platform && terraform apply -var-file="environments/preprod.t
 make setup          # Configure local environment prefix
 make bootstrap      # Deploy Azure state storage backend
 make hub-deploy     # Deploy Shared Hub management plane
-make infra-preprod  # Deploy preprod spoke environment
+make infra-deploy   # Deploy the platform spoke environment
 make jenkins-sync   # Sync playbooks and update dynamic inventory
 make jenkins-up     # Spin up Jenkins container on the Jumpbox VM
 make clean          # Display cleanup instructions

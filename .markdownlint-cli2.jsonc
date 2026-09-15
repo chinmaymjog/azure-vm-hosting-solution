@@ -1,0 +1,11 @@
+{
+  "config": {
+    "default": true,
+    "MD013": false, // line-length: prose, tables, and long command examples don't wrap well at 80 chars
+    "MD004": false, // ul-style: docs mix "-" and "*" bullets across files, not worth normalizing
+    "MD022": false, // blanks-around-headings: cosmetic spacing, not worth enforcing repo-wide
+    "MD031": false, // blanks-around-fences: cosmetic spacing, not worth enforcing repo-wide
+    "MD032": false, // blanks-around-lists: cosmetic spacing, not worth enforcing repo-wide
+    "MD029": false  // ol-prefix: numbered steps interrupted by code fences read as separate lists to the linter
+  }
+}
