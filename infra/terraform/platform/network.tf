@@ -28,7 +28,7 @@ resource "azurerm_subnet" "snet_database" {
   virtual_network_name = azurerm_virtual_network.vnet.name
   address_prefixes     = [cidrsubnet(var.vnet_address_space[0], var.subnet_newbits, 2)]
   service_endpoints    = ["Microsoft.Storage"]
-  
+
   delegation {
     name = "fs"
     service_delegation {
@@ -44,7 +44,7 @@ resource "azurerm_subnet" "snet_netapp" {
   resource_group_name  = azurerm_resource_group.rg.name
   virtual_network_name = azurerm_virtual_network.vnet.name
   address_prefixes     = [cidrsubnet(var.vnet_address_space[0], var.subnet_newbits, 3)]
-  
+
   delegation {
     name = "netapp"
     service_delegation {
