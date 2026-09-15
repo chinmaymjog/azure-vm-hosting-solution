@@ -20,7 +20,7 @@ Choose a project prefix (e.g., `myhosting new`) to brand your Azure resources:
 export PROJECT_NAME="myhosting new"
 ```
 
-To prevent global naming conflicts on Azure (since Storage Account names must be globally unique) and ensure absolute compatibility with resource naming rules, we automatically sanitize and persist your configuration. 
+To prevent global naming conflicts on Azure (since Storage Account names must be globally unique) and ensure absolute compatibility with resource naming rules, we automatically sanitize and persist your configuration.
 
 Run the setup command to initialize your configuration:
 ```bash
@@ -41,11 +41,11 @@ Before running any Terraform deployment steps, customize the infrastructure scal
 - **Production**: [infra/terraform/platform/environments/prod.tfvars](infra/terraform/platform/environments/prod.tfvars) (high-availability enterprise defaults)
 
 Key parameters you can tune in these files before deployment:
-*   `my_ip`: Change this from `*` to your office or home public IP range (e.g. `198.51.100.42/32`) to lock down administrative port access at the network firewall.
-*   `vnet_address_space`: Set the Spoke VNet subnet prefix to avoid overlaps with your corporate or existing cloud networks.
-*   `vm_count` & `vm_size`: Sizing and quantity of compute web VM nodes.
-*   `mysql_sku` & `mysql_storage_gb`: Performance tier and storage size for the MySQL database.
-*   `netapp_pool_size_tb` & `netapp_service_level`: Capacity and speed of the active shared NetApp volume (NFS). Note that Azure NetApp capacity pools require a minimum of `4` TiB in production settings.
+* `my_ip`: Change this from `*` to your office or home public IP range (e.g. `198.51.100.42/32`) to lock down administrative port access at the network firewall.
+* `vnet_address_space`: Set the Spoke VNet subnet prefix to avoid overlaps with your corporate or existing cloud networks.
+* `vm_count` & `vm_size`: Sizing and quantity of compute web VM nodes.
+* `mysql_sku` & `mysql_storage_gb`: Performance tier and storage size for the MySQL database.
+* `netapp_pool_size_tb` & `netapp_service_level`: Capacity and speed of the active shared NetApp volume (NFS). Note that Azure NetApp capacity pools require a minimum of `4` TiB in production settings.
 
 ---
 
@@ -106,10 +106,10 @@ make infra-preprod
 
 Before deploying to production (`make infra-prod`), review and customize the environment parameters inside [infra/terraform/platform/environments/prod.tfvars](infra/terraform/platform/environments/prod.tfvars) to fit your scaling, security, and workload requirements:
 
-*   **Compute Fleet Scalability (`vm_count` & `vm_size`)**: Increase `vm_count` (e.g. to `4` or more) to distribute load across availability zones, and upgrade `vm_size` to general-purpose instances (like `Standard_D2s_v5`) to handle high concurrency.
-*   **Production Storage Performance (`netapp_pool_size_tb` & `netapp_service_level`)**: Azure NetApp Files requires a minimum pool size of `4` TiB in production environments. Set `netapp_service_level` to `Premium` or `Ultra` to guarantee sub-millisecond IOPS for active website code execution.
-*   **Database Redundancy (`mysql_sku` & `mysql_backup_retention_days`)**: Scale the database instance using a General Purpose SKU (e.g. `GP_Standard_D2ds_v4`) and set `mysql_backup_retention_days` to `30` to enforce long-term recovery points.
-*   **Access Control & IP Hardening (`my_ip`)**: Update `my_ip` to your office or VPN egress IP range. This ensures that SSH access to the management Jumpbox and backend servers is restricted exclusively to trusted administration endpoints.
+* **Compute Fleet Scalability (`vm_count` & `vm_size`)**: Increase `vm_count` (e.g. to `4` or more) to distribute load across availability zones, and upgrade `vm_size` to general-purpose instances (like `Standard_D2s_v5`) to handle high concurrency.
+* **Production Storage Performance (`netapp_pool_size_tb` & `netapp_service_level`)**: Azure NetApp Files requires a minimum pool size of `4` TiB in production environments. Set `netapp_service_level` to `Premium` or `Ultra` to guarantee sub-millisecond IOPS for active website code execution.
+* **Database Redundancy (`mysql_sku` & `mysql_backup_retention_days`)**: Scale the database instance using a General Purpose SKU (e.g. `GP_Standard_D2ds_v4`) and set `mysql_backup_retention_days` to `30` to enforce long-term recovery points.
+* **Access Control & IP Hardening (`my_ip`)**: Update `my_ip` to your office or VPN egress IP range. This ensures that SSH access to the management Jumpbox and backend servers is restricted exclusively to trusted administration endpoints.
 
 To apply the production configuration, run:
 ```bash
@@ -123,11 +123,11 @@ make infra-prod
 Now that the "Hardware" is ready, we use a containerized Jenkins Management Portal to drive our Ansible configurations securely.
 
 ### 3.1 Sync & Spin Up Jenkins
-1.  **Sync Automation Stack**: Push your Jenkins configuration and Ansible playbooks to the Jumpbox. This automatically generates a dynamic inventory for all active environments.
+1. **Sync Automation Stack**: Push your Jenkins configuration and Ansible playbooks to the Jumpbox. This automatically generates a dynamic inventory for all active environments.
     ```bash
     make jenkins-sync
     ```
-2.  **Spin Up Jenkins**: Securely pass your private SSH key in-memory and start the Jenkins portal on the Jumpbox.
+2. **Spin Up Jenkins**: Securely pass your private SSH key in-memory and start the Jenkins portal on the Jumpbox.
     ```bash
     make jenkins-up
     ```
@@ -157,18 +157,18 @@ scp -i ./ssh-key -r ./my-code/* azureuser@<VM_IP>:/netappwebsites/<SITE_NAME>/pu
 
 ### 3.5 Test Your Site
 Since we haven't configured public DNS yet, you can test your site by adding an entry to your local machine's hosts file:
-1.  **Get the Load Balancer Public IP**.
-2.  **Add to `/etc/hosts` (macOS/Linux)**:
+1. **Get the Load Balancer Public IP**.
+2. **Add to `/etc/hosts` (macOS/Linux)**:
     ```bash
     <PUBLIC_IP>  mysite.preprod.local
     ```
-3.  **Visit**: `http://mysite.preprod.local` in your browser.
+3. **Visit**: `http://mysite.preprod.local` in your browser.
 
 ---
 
 ## ⚙️ Environment Configuration & Dynamic Inventory
 
-The automation plane separates dynamic, high-churn network data from stable, static infrastructure registries. 
+The automation plane separates dynamic, high-churn network data from stable, static infrastructure registries.
 
 ### 📡 Dynamic Inventory (`hosts`)
 * **Purpose:** Maps Ansible hosts to target VM private IPs.
@@ -178,7 +178,7 @@ The automation plane separates dynamic, high-churn network data from stable, sta
 ### 📂 Database Configuration Map (`database_vars.yml`)
 * **Purpose:** Maps playbooks to target database nodes, administrative users, and Azure Key Vault secrets.
 * **Operational Cycle:** **Static & Stable**. The SQL servers and Key Vault are persistent, stable architectural backbones.
-* **How it is populated:** 
+* **How it is populated:**
   1. **Deploy Hub:** Run `make hub-deploy`, which outputs the globally unique Key Vault name (e.g., `kv-myhostingnew-5e12c6a8`).
   2. **Deploy Spokes:** Run `make infra-preprod` / `make infra-prod`, which deploy the MySQL servers and output their stable FQDNs.
   3. **Bootstrap Mapping:** Copy these stable FQDNs and the Key Vault name into `infra/ansible/playbooks/var_files/database_vars.yml` once during the initial bootstrapping of your environment.
