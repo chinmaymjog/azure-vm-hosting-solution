@@ -72,10 +72,10 @@ resource "azurerm_linux_virtual_machine" "vms" {
   }
 
   user_data = base64encode(templatefile("${path.module}/ubuntu_provisioner.sh", {
-    netapp_ip            = azurerm_netapp_volume.na_volume.mount_ip_addresses[0]
-    netapp_path          = azurerm_netapp_volume.na_volume.volume_path
-    backup_nfs_host      = "${data.azurerm_storage_account.st_backups.name}.file.core.windows.net"
-    storage_account_name = data.azurerm_storage_account.st_backups.name
+    website_nfs_host             = "${azurerm_storage_account.st_website.name}.file.core.windows.net"
+    website_storage_account_name = azurerm_storage_account.st_website.name
+    backup_nfs_host              = "${data.azurerm_storage_account.st_backups.name}.file.core.windows.net"
+    storage_account_name         = data.azurerm_storage_account.st_backups.name
   }))
 
   os_disk {

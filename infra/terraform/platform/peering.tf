@@ -15,8 +15,7 @@ resource "azurerm_virtual_network_peering" "spoke_to_hub" {
   # Avoid parallel PutSubnetOperation lock on the spoke VNet
   depends_on = [
     azurerm_subnet.snet_compute,
-    azurerm_subnet.snet_database,
-    azurerm_subnet.snet_netapp
+    azurerm_subnet.snet_database
   ]
 }
 
@@ -32,7 +31,6 @@ resource "azurerm_virtual_network_peering" "hub_to_spoke" {
   # Avoid parallel PutSubnetOperation lock on the spoke VNet
   depends_on = [
     azurerm_subnet.snet_compute,
-    azurerm_subnet.snet_database,
-    azurerm_subnet.snet_netapp
+    azurerm_subnet.snet_database
   ]
 }
