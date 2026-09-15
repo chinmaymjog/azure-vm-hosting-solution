@@ -26,7 +26,7 @@ resource "azurerm_network_interface" "nics" {
 data "azurerm_resources" "backup_storage" {
   resource_group_name = "rg-${var.project_name}-hub"
   type                = "Microsoft.Storage/storageAccounts"
-  
+
   required_tags = {
     Role = "SharedBackup"
   }
@@ -41,7 +41,7 @@ data "azurerm_storage_account" "st_backups" {
 data "azurerm_resources" "hub_ssh_key" {
   resource_group_name = "rg-${var.project_name}-hub"
   type                = "Microsoft.Compute/sshPublicKeys"
-  
+
   required_tags = {
     Role = "SharedSSH"
   }
