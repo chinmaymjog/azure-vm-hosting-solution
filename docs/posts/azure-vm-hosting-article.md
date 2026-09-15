@@ -9,9 +9,9 @@ I built the **Azure VM-Based Hosting Solution** to show that you don't need a co
 
 ## The Case for VMs
 Kubernetes is a powerful tool, but it comes with a significant "cognitive tax." For a standard web stack (like WordPress or a simple Node.js app), a VM-based approach offers several advantages:
-1.  **Cost Predictability**: No complex scaling math or hidden ingress costs.
-2.  **Performance**: Direct access to kernel tuning and IOPS without container overhead.
-3.  **Simplicity**: If it breaks, you check the logs. You don't debug a service mesh.
+1. **Cost Predictability**: No complex scaling math or hidden ingress costs.
+2. **Performance**: Direct access to kernel tuning and IOPS without container overhead.
+3. **Simplicity**: If it breaks, you check the logs. You don't debug a service mesh.
 
 ## The Secret Sauce: IaC + Configuration Management
 The reason VMs got a bad reputation was "manual toil." By combining **Terraform** for infrastructure and **Ansible** for configuration, we turn a "pet" VM into an immutable "cattle" asset.
