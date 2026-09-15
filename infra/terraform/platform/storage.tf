@@ -27,7 +27,7 @@ resource "azurerm_netapp_volume" "na_volume" {
   protocols           = ["NFSv4.1"]
   storage_quota_in_gb = var.netapp_volume_size_gb
   tags                = var.tags
-  
+
   export_policy_rule {
     rule_index          = 1
     allowed_clients     = ["0.0.0.0/0"]

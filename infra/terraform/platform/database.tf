@@ -28,7 +28,7 @@ resource "azurerm_private_dns_zone_virtual_network_link" "mysql_dns_hub_link" {
 data "azurerm_resources" "hub_vault" {
   resource_group_name = "rg-${var.project_name}-hub"
   type                = "Microsoft.KeyVault/vaults"
-  
+
   required_tags = {
     Role = "SharedVault"
   }
@@ -51,24 +51,17 @@ resource "azurerm_mysql_flexible_server" "mysql" {
   administrator_login    = "dbadmin"
   administrator_password = data.azurerm_key_vault_secret.db_password.value
   sku_name               = var.mysql_sku
-  
+
   storage {
     size_gb = var.mysql_storage_gb
   }
-  
+
   backup_retention_days = var.mysql_backup_retention_days
-  delegated_subnet_id    = azurerm_subnet.snet_database.id
-  private_dns_zone_id    = azurerm_private_dns_zone.mysql_dns.id
-  tags                   = var.tags
+  delegated_subnet_id   = azurerm_subnet.snet_database.id
+  private_dns_zone_id   = azurerm_private_dns_zone.mysql_dns.id
+  tags                  = var.tags
 
   depends_on = [azurerm_private_dns_zone_virtual_network_link.mysql_dns_link]
-}
-
-resource "azurerm_mysql_flexible_server_configuration" "disable_ssl" {
-  name                = "require_secure_transport"
-  resource_group_name = azurerm_resource_group.rg.name
-  server_name         = azurerm_mysql_flexible_server.mysql.name
-  value               = "OFF"
 }
 
 resource "azurerm_mysql_flexible_database" "db" {
