@@ -115,7 +115,7 @@
     - name: Deploy logrotate configuration for custom site logs
       ansible.builtin.copy:
         content: |
-          /netappwebsites/*/logs/*.log {
+          /websites/*/logs/*.log {
               daily
               missingok
               rotate 14
@@ -129,7 +129,7 @@
               endscript
           }
 
-          /netappwebsites/*/php-fpm-logs/*.log {
+          /websites/*/php-fpm-logs/*.log {
               daily
               missingok
               rotate 14

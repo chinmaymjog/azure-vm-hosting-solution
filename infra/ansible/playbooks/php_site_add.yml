@@ -17,18 +17,17 @@
           - site_url is match('^[a-zA-Z0-9][-a-zA-Z0-9.]*\\.[a-zA-Z]{2,11}$')
         fail_msg: "🚨 Invalid FQDN '{{ site_url | default('') }}'! Domain must be a valid FQDN (e.g. example.com) without protocol prefixes (http://) or trailing slashes (/)."
 
-    - name: Set host environment variable
+    - name: Set effective site URL
       ansible.builtin.set_fact:
-        host_env: "{{ 'preproduction' if 'preproduction' in group_names else 'production' }}"
-        effective_site_url: "{{ 'preprod-' + site_url if 'preproduction' in group_names else site_url }}"
+        effective_site_url: "{{ site_url }}"
 
-    - name: Set environment-specific database variables
+    - name: Set database variables
       set_fact:
-        db_host: "{{ lookup('vars', host_env).db_host }}"
-        db_port: "{{ lookup('vars', host_env).db_port | default(3306) }}"
-        db_user: "{{ lookup('vars', host_env).db_user }}"
-        keyvault_name: "{{ lookup('vars', host_env).keyvault_name }}"
-        keyvault_secret: "{{ lookup('vars', host_env).keyvault_secret }}"
+        db_host: "{{ lookup('vars', 'preproduction').db_host }}"
+        db_port: "{{ lookup('vars', 'preproduction').db_port | default(3306) }}"
+        db_user: "{{ lookup('vars', 'preproduction').db_user }}"
+        keyvault_name: "{{ lookup('vars', 'preproduction').keyvault_name }}"
+        keyvault_secret: "{{ lookup('vars', 'preproduction').keyvault_secret }}"
 
     - name: Fetch Azure Managed Identity Token
       delegate_to: localhost
@@ -78,7 +77,7 @@
       become: false
       ansible.builtin.shell: |
         rndm=$(( 10000 + $RANDOM % 90000 ))
-        user=$(echo {{ site_url }} | tr -d '.,-' | sed -e s/preprod//g | cut -c 1-10)_$rndm
+        user=$(echo {{ site_url }} | tr -d '.,-' | cut -c 1-10)_$rndm
         echo $user
       register: username
       args:

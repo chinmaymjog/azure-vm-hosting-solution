@@ -1,10 +1,6 @@
 #!/bin/bash
 set -e
 
-# Template Variables from Terraform
-NETAPP_IP="${netapp_ip}"
-NETAPP_PATH="${netapp_path}"
-
 ## Provisioner log file
 logfile=/var/log/provisioner.log
 log() {
@@ -41,31 +37,29 @@ if ! grep -q "/data" /etc/fstab; then
 fi
 mount -a
 
-# --- 3. NetApp Shared Storage Configuration ---
-if [ ! -z "$NETAPP_IP" ]; then
-    # Websites Volume
-    log "Configuring NetApp Websites Mount ($NETAPP_IP:$NETAPP_PATH)"
-    mkdir -p /netappwebsites
-    if ! grep -q "/netappwebsites" /etc/fstab; then
-        echo "$NETAPP_IP:/$NETAPP_PATH /netappwebsites nfs nfsvers=4.1,hard,timeo=600,retrans=2,_netdev 0 0" | tee -a /etc/fstab
-    fi
+# --- 3. Shared Storage Configuration (Azure Files NFS) ---
 
-    # Backups Volume (Shared Hub NFS)
-    log "Configuring Shared Hub Backups Mount (${backup_nfs_host})"
-    mkdir -p /backups
-    
-    # Clean up old entries
-    sed -i '/\/backups/d' /etc/fstab
-    
-    # Add fresh entry
-    echo "${backup_nfs_host}:/${storage_account_name}/backups /backups nfs nfsvers=4.1,hard,timeo=600,retrans=2,_netdev 0 0" | tee -a /etc/fstab
-    
-    umount /backups || true
-    mount -a
-    
-    # Ensure Apache (www-data) has execute permissions to traverse the mount point
-    chmod 755 /netappwebsites
-fi
+# Websites Volume
+log "Configuring Website Storage Mount (${website_nfs_host})"
+mkdir -p /websites
+sed -i '/\/websites/d' /etc/fstab
+echo "${website_nfs_host}:/${website_storage_account_name}/websites /websites nfs nfsvers=4.1,hard,timeo=600,retrans=2,_netdev 0 0" | tee -a /etc/fstab
+
+# Backups Volume (Shared Hub NFS)
+log "Configuring Shared Hub Backups Mount (${backup_nfs_host})"
+mkdir -p /backups
+
+# Clean up old entries
+sed -i '/\/backups/d' /etc/fstab
+
+# Add fresh entry
+echo "${backup_nfs_host}:/${storage_account_name}/backups /backups nfs nfsvers=4.1,hard,timeo=600,retrans=2,_netdev 0 0" | tee -a /etc/fstab
+
+umount /websites /backups || true
+mount -a
+
+# Ensure Apache (www-data) has execute permissions to traverse the mount point
+chmod 755 /websites
 
 # --- 4. System Hardening (Aligned with Jumpbox) ---
 log "Applying System Hardening"
