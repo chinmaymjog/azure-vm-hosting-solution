@@ -1,126 +1,70 @@
-# Architecture and Decisions
+# Architecture
 
-## Document Control
+## What This Is
 
-- Project: Azure Shared Hosting Platform (Hardened)
-- Owner: Chinmay Jog
-- Last updated: 2026-06-06
-- Version: 0.1.0
+A Hub-Spoke Azure shared hosting platform: a management Hub (Jumpbox +
+Key Vault + backups) peered to a Platform Spoke (Front Door, Load
+Balancer, web VM fleet, MySQL Flexible Server, website storage). See
+the diagram in `README.md`.
 
-## System Context
+## How It Works
 
-### Business and Technical Context
+1. `make bootstrap` creates the Terraform remote state backend.
+2. `make hub-init`/`make hub-deploy` provisions the Hub: Key Vault,
+   shared SSH key, backup storage, and the Jumpbox.
+3. `make infra-init`/`make infra-deploy` provisions the Spoke: VNet,
+   Front Door + WAF, Load Balancer, web VM fleet, MySQL Flexible
+   Server, and website storage - peered back to the Hub.
+4. `make jenkins-sync`/`make jenkins-up` syncs Ansible playbooks to
+   the Jumpbox and starts the Jenkins management portal there.
+5. Sites are onboarded through Jenkins jobs (or a direct Ansible CLI
+   run), which write Apache/PHP-FPM vhosts and a JSON site record to
+   the shared `/backups/sites` registry.
 
-This system is designed to provide high-performance, cost-effective, and secure hosting for PHP/HTML websites without the overhead of container orchestrators. Security isolation, automated backups, and shared storage scaling are key challenges addressed by combining modern cloud infrastructure with proven configuration management tools.
+## Key Decisions
 
-### Architecture Goals
+- **Decision:** Website storage uses Azure Files Premium NFS instead
+  of Azure NetApp Files.
+  **Why:** NetApp Files needs a minimum 4 TiB capacity pool and, on
+  many subscriptions, a manual quota approval - a real barrier for a
+  first try. Azure Files Premium NFS needs neither, at a fraction of
+  the cost. The repo's own ADR history already called this out as a
+  valid fallback.
+  **Revisit if:** Sites need NetApp's sub-millisecond latency at real
+  production scale - the `advanced` branch keeps NetApp Files for
+  that case.
 
-- **Security Isolation**: Enforce network segregation, firewall restrictions, and zero-knowledge credentials.
-- **High Disk Performance**: Meet multi-tenant disk read/write requirements under concurrent traffic.
-- **Repeatable & Idempotent**: Establish configuration management and infrastructure templates that can recover from disaster easily.
+- **Decision:** `main` deploys a single environment instead of a
+  preprod/prod split.
+  **Why:** Two full spoke environments double the VM/database/storage
+  cost for someone just trying the repo out.
+  **Revisit if:** You need a staging environment before promoting
+  changes - the `advanced` branch keeps the preprod/prod Terraform
+  workspaces for that.
+- **Decision:** Jenkins (Dockerized, on the Jumpbox) is the
+  administration portal for site onboarding and backups, with a
+  documented Ansible CLI fallback.
+  **Why:** Centralizes site provisioning, DB dumps, and cert requests
+  behind one authenticated UI instead of ad hoc SSH sessions.
+  **Revisit if:** The team outgrows a single Jumpbox-hosted Jenkins
+  instance.
+- **Decision:** All secrets (DB password, SSH private key) live in
+  Azure Key Vault, fetched at provision time via the Jumpbox's
+  User-Assigned Managed Identity - never stored on disk or in Git.
+  **Why:** Zero-trust goal for the platform; a leaked repo or laptop
+  should not leak credentials.
+  **Revisit if:** Never, without a strong replacement in place first.
 
-## High-Level Design
+## Known Risks / Rough Edges
 
-### Component Overview
-
-| Component | Responsibility | Owner |
-| --------- | -------------- | ----- |
-| **Azure Front Door (AFD)** | Edge WAF security, caching, SSL offloading, and global load balancing. | Terraform |
-| **Public Load Balancer (LB)**| Distributes HTTP/HTTPS traffic to the private spoke compute fleet. | Terraform |
-| **Compute Spoke Fleet** | Scales hardened Ubuntu VMs running Apache + PHP-FPM serving tenant assets. | Terraform / Ansible |
-| **Azure NetApp Files (ANF)**| Serves high-performance NFS v4.1 storage for shared website files. | Terraform |
-| **MySQL Flexible Server** | Relational database engine, network-isolated via Private DNS. | Terraform |
-| **Management Jumpbox** | Bastion host running dockerized Jenkins and local Ansible runner. | Terraform / Ansible |
-| **Azure Key Vault (AKV)** | Secure storage of TLS certificates and database administrator passwords. | Terraform |
-| **Azure Files NFS (Backups)**| Centralized backups repository mounted via NFS 4.1 in the Hub. | Terraform |
-
-### Interaction Diagram
-
-```text
-               [ Public Users ]
-                      │
-                      ▼
-            [ Azure Front Door & WAF ]
-                      │
-                      ▼
-         [ Public Load Balancer ]
-                      │
-      ┌───────────────┴───────────────┐
-      ▼ (VNet Peering)                ▼
-[ Web Compute Node 01 ]    [ Web Compute Node 02 ]
-  │            │             │            │
-  ▼            ▼             ▼            ▼
-[ Azure NetApp Volume ]    [ MySQL Flexible Server ]
-(/netappwebsites - NFS v4.1)  (Private DNS Endpoint)
-               ▲
-               │ (Private SSH/Ansible)
-       [ Management Hub ]
-      (Jumpbox / Jenkins Portal)
-               │ (Managed Identity)
-       [ Azure Key Vault ]
-```
-
-## Data and Control Flow
-
-### Request/Response Flow
-1. User requests a hosted site.
-2. Azure Front Door inspects rules via WAF, decrypts TLS, and forwards traffic to the regional Load Balancer.
-3. Load Balancer routes traffic to active compute VMs in the private Spoke subnet.
-4. Apache processes requests, executes PHP, and reads site code from the mounted Azure NetApp Files volume.
-5. Databases queries are routed privately to the Azure MySQL Flexible Server.
-
-### State and Data Model Notes
-- All persistent site configurations and code reside on the shared NetApp NFS volume.
-- Databases are hosted in the managed MySQL server.
-- Backup jobs dump database schemas and compress site files, pushing them directly to the NFS `/backups` share.
-
-### Failure Paths
-- Spoke compute node failures: Load Balancer health checks redirect traffic away from unhealthy nodes.
-- NFS mount failures: System configuration enforces persistent NFS automounts on boot via `fstab`.
-
-## Deployment Architecture
-
-### Environments
-- **Local**: Local dev machine executing `Makefile` instructions and holding terraform workspaces.
-- **Shared Hub**: Centralized infrastructure containing the management Jumpbox, backup NFS, and Vault.
-- **Preprod Spoke**: Workload environment for QA/staging workloads.
-- **Prod Spoke**: Hardened workload environment with high-availability configurations.
-
-### Security and Compliance
-- **AuthN/AuthZ model**: SSH key-based access to the Jumpbox. Jenkins login uses administrative credentials with TLS.
-- **Secret management**: Dynamic retrieval from Azure Key Vault using VM User-Assigned Managed Identity (zero secrets stored in git).
-- **Input validation boundaries**: Checked at Front Door WAF and validated by Apache server configurations.
-
-## Architecture Decision Records (ADR-lite)
-
-### Decision: ADR-001 (Hub-Spoke Network Topology)
-- **Status**: Accepted
-- **Context**: Management traffic and backups must be separate from web traffic.
-- **Decision**: Hub VNet will contain administrative nodes (Jumpbox, Vault, backups share). Spoke VNets will contain web VMs and databases. Communication is peering-only.
-- **Requirement links**: NFR-003, FR-004
-- **Alternatives considered**: Single flat VNet (rejected due to lack of network boundary security).
-
-### Decision: ADR-002 (Azure NetApp Files for Shared Storage)
-- **Status**: Accepted
-- **Context**: Shared hosting compute nodes must concurrently access the same web directories with low-latency and high throughput.
-- **Decision**: Use Azure NetApp Files volume (`/netappwebsites`) mounted via NFS v4.1.
-- **Requirement links**: NFR-002, FR-001
-- **Alternatives considered**: Azure Files NFS (satisfactory for backups, but NetApp has superior sub-millisecond latency for live site requests).
-
-### Decision: ADR-003 (Zero-Trust Key Vault Integration)
-- **Status**: Accepted
-- **Context**: MySQL passwords, TLS keys, and configurations must be securely retrieved during deployment and provisioning.
-- **Decision**: Provision a User-Assigned Managed Identity for the Jumpbox VM, giving it secret reader access to Key Vault. Ansible uses `azure.azcollection` to query AKV secrets dynamically at runtime.
-- **Requirement links**: NFR-001, FR-003
-
-## Requirement to Design Mapping
-
-| Requirement ID | Architectural Element | ADR ID | Notes |
-| -------------- | --------------------- | ------ | ----- |
-| FR-001 | Web Compute Fleet | ADR-002 | Uses Ubuntu VMs and NetApp files |
-| FR-002 | Front Door & Load Balancer | ADR-001 | Global and regional traffic management |
-| FR-003 | Management Jumpbox & Jenkins | ADR-003 | Automates tasks with secure credential injection |
-| FR-004 | MySQL Flexible Server | ADR-001 | Private subnet and Private DNS zoning |
-| NFR-001 | User-Assigned Managed Identity | ADR-003 | Zero credentials stored on disk |
-| NFR-002 | Azure NetApp Volume | ADR-002 | Low-latency shared hosting backend |
-| NFR-003 | Hub-Spoke VNet Peering | ADR-001 | Enforces management-workload segregation |
+- This deploys real, billed Azure infrastructure - there is no free
+  tier here. Run `make infra-destroy` and `make hub-destroy` when
+  you're done experimenting.
+- `my_ip` defaults to `"*"` (open SSH ingress to the Jumpbox, though
+  key-only auth + Fail2Ban still apply) - set it to your real IP
+  before deploying anything you care about.
+- The Azure Front Door WAF policy ships in `Detection` mode, not
+  `Prevention` - it logs threats but does not block them by default.
+- No secret-rotation automation - Key Vault versioning exists, but
+  rotating the MySQL admin password still requires a manual
+  `terraform apply` with a new `random_password`.

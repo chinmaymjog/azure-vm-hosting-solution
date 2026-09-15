@@ -1,7 +1,7 @@
 # ==============================================================================
-# PRE-PRODUCTION ENVIRONMENT BLUEPRINT (preprod.tfvars)
+# DEFAULT ENVIRONMENT BLUEPRINT (main.tfvars)
 # ==============================================================================
-# Use this file to customize the hosting architecture for testing, staging, and UAT.
+# Use this file to customize the hosting architecture.
 # Cost-optimized instance SKUs and smaller capacities are used by default.
 
 # ------------------------------------------------------------------------------
@@ -9,11 +9,11 @@
 # ------------------------------------------------------------------------------
 project_name = "shrdhosting"
 location     = "West Europe"
-environment  = "preprod"
+environment  = "main"
 
 tags = {
   Project     = "Shared Hosting Platform"
-  Environment = "Pre-Production"
+  Environment = "Main"
   ManagedBy   = "Terraform"
   Owner       = "Chinmay Jog"
 }
@@ -28,16 +28,14 @@ vm_data_disk_size_gb = 10             # Local scratch block storage disk in GB
 admin_username       = "azureuser"    # Admin SSH login username
 
 # ------------------------------------------------------------------------------
-# 3. Enterprise Shared Storage & NFS Parameters (Azure NetApp Files)
+# 3. Website Storage Parameters (Azure Files Premium NFS)
 # ------------------------------------------------------------------------------
-netapp_pool_size_tb   = 1          # NetApp Capacity Pool size in TB (Set to 1 for cost-efficiency)
-netapp_volume_size_gb = 100        # Size of the active NFS volume for site data
-netapp_service_level  = "Standard" # NetApp Performance Tier (Standard/Premium/Ultra)
+website_storage_gb = 100 # Size of the website NFS share in GB (Premium file shares, min 100)
 
 # ------------------------------------------------------------------------------
-# 4. Highly-Available Database Parameters (MySQL Flexible Server)
+# 4. Database Parameters (MySQL Flexible Server)
 # ------------------------------------------------------------------------------
-mysql_sku                   = "B_Standard_B1ms" # Burstable instance for preproduction workloads
+mysql_sku                   = "B_Standard_B1ms" # Burstable instance for cost savings
 mysql_storage_gb            = 20                # Database storage volume size in GB (Min 20)
 mysql_backup_retention_days = 7                 # Number of days to retain transaction backups
 
