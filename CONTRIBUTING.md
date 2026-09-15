@@ -1,81 +1,40 @@
-# Contributing Guidelines
+# Contributing
 
-Thank you for contributing to the **Azure VM Hosting Solution**! This guide ensures that the infrastructure remains secure, the configuration is idempotent, and the repository conforms to our engineering standards.
+Use this repository to evolve the hardened Azure shared hosting platform while keeping secrets, network topology, and site onboarding predictable.
 
-## Branching Strategy
+## Workflow
 
-This project follows **Trunk-Based Development (TBD)**:
-* `main` – Production-ready code. Direct commits to `main` are prohibited.
-* `feature/*` – New features (e.g., `feature/add-ansible-linting`).
-* `bugfix/*` – Defect fixes (e.g., `bugfix/mysql-connection-timeout`).
-* `hotfix/*` – Critical production fixes.
+1. Create a short-lived branch from `advanced` using `feature/*`, `bugfix/*`, or `hotfix/*`.
+2. Keep the branch focused on one layer (Terraform network/compute/storage, Ansible playbook, or documentation) or one clear cross-cutting fix.
+3. Use Conventional Commits such as `feat: add site backup rotation` or `docs: update deployment guide`.
+4. Run `terraform fmt -check -recursive` and `terraform validate` (see Validation below) before opening a Pull Request.
+5. Open a Pull Request with summary, validation performed, and any manual test notes.
 
-### Branch Rules
-- All changes must be submitted via a Pull Request (PR).
-- Keep branches short-lived (typically under 2 days) and focused on a single issue.
-- Rebase frequently on `main` to avoid drift.
+## Repo-Specific Guidance
 
-## Commit Message Convention
+- Terraform lives in `infra/terraform/shared-hub` (management Hub) and `infra/terraform/platform` (spoke). Keep new resources in the layer they belong to - don't reach across the Hub/Spoke boundary except through the documented data-source discovery pattern (tag-based lookups, e.g. `data.azurerm_resources` with `required_tags`).
+- Ansible playbooks live in `infra/ansible/playbooks`; keep them idempotent (running twice changes nothing).
+- Jenkins job definitions live in `infra/jenkins/jobs` as Jenkins Job DSL/config XML - keep new jobs under the existing `Administrative_Tools` or `Hosting_Management_Portal` folders.
+- No hardcoded secrets or passwords in `.tf`, `.tfvars`, or playbook files - secrets flow through Azure Key Vault and local `.env`/`make secrets` only.
 
-This project uses **Conventional Commits**. All commit messages must follow this format:
+## Guardrails
 
-```text
-<type>: <short description>
-```
+- Do not commit directly to `advanced`.
+- Do not commit real secret values, `.env`, or the `ssh-key` file.
+- Public IPs stay on the Jumpbox and Load Balancer only - no public IPs on Spoke web VMs.
+- Update README, `HOW_TO_GUIDE.md`, or `SITE_MANAGEMENT.md` when setup, deployment, or site-onboarding steps change.
 
-### Allowed Types
-- `feat`: New functionality (e.g., `feat: add database backup rotation`).
-- `fix`: Bug fixes (e.g., `fix: resolve private link resolution`).
-- `docs`: Documentation updates (e.g., `docs: update setup instructions`).
-- `refactor`: Internal code improvements without functional changes.
-- `test`: Adding or correcting tests.
-- `chore`: Maintenance tasks (e.g., dependency updates, path updates).
-- `ci`: CI/CD configuration updates.
+## Validation
 
-### Guidelines
-- Use present tense (e.g., "add feature", not "added feature").
-- Keep the first line under 72 characters.
-- Avoid generic messages such as "fix stuff" or "updates".
+Before opening a Pull Request:
 
-## Development Workflow
+- `terraform fmt -check -recursive` from `infra/terraform/`
+- `terraform init -backend=false && terraform validate` for both `infra/terraform/platform` and `infra/terraform/shared-hub`
+- a manual deploy/destroy cycle against a real subscription when the change touches Terraform resources, since this repo has no automated cloud test environment
+- review the diff for scope and secret safety
 
-1. **Branch**: Create a short-lived branch from `main` (e.g., `feature/my-new-feature`).
-2. **IaC Development**:
-   - Work within the `infra/terraform/` directory.
-   - Run `terraform validate` and `terraform fmt` to ensure syntax and style.
-3. **Configuration Development**:
-   - Test Ansible playbooks inside `infra/ansible/`.
-   - Ensure all roles are idempotent (running twice changes nothing).
-4. **Local Validation**:
-   - Run `make infra-init` and verify Spoke backend configuration.
-   - Run `make jenkins-sync` to verify hosts inventory generation.
+## Documentation Updates
 
-## Testing & Security Checklist
-
-Before opening a Pull Request, verify the following checks:
-
-### 1. Infrastructure (Terraform)
-- [ ] No hardcoded secrets or passwords in `.tf` or `.tfvars` files.
-- [ ] Network Security Groups (NSG) follow the principle of least privilege.
-- [ ] Public IP is only assigned to the Jumpbox VM (no public IPs on Spoke VMs).
-- [ ] Resources are tagged with correct environment and owner tags.
-
-### 2. Configuration (Ansible & Jenkins)
-- [ ] SSH root login is disabled on all compute hosts.
-- [ ] Host firewalls (UFW) are enabled and enforce limits.
-- [ ] Secrets are loaded dynamically via Azure Key Vault using VM Managed Identities.
-
-### 3. Verification & Cleanup
-- [ ] Backup and recovery scripts execute successfully.
-- [ ] `terraform destroy` successfully cleans up all provisioned resources.
-
-## Pull Request Guidelines
-
-Every PR should contain:
-- **Summary**: Describe what was implemented.
-- **Related Issue**: Reference associated issue numbers (e.g., `Closes #42`).
-- **Testing Performed**: Detail unit/integration tests or manual checks.
-- Keep PR size under 500 lines of code changes to facilitate prompt reviews.
-
----
-*Maintained by [Chinmay Jog](https://github.com/chinmaymjog).*
+- Update README when the deploy flow, Stack Catalog, or onboarding steps change.
+- Update `docs/tasks.md` when tracked work starts or finishes.
+- Update `docs/architecture.md` when network topology, storage backend, or secret strategy changes.

@@ -52,9 +52,9 @@ This lab provides an automated, VM-based hosting environment built with a platfo
 ## 📋 Prerequisites
 
 ### System Requirements
-*   **Operating System**: macOS or Linux.
-*   **Azure Subscription**: Active account with sufficient quotas.
-*   **Tools**: Azure CLI (`az`), Terraform >= 1.5.0, Make.
+* **Operating System**: macOS or Linux.
+* **Azure Subscription**: Active account with sufficient quotas.
+* **Tools**: Azure CLI (`az`), Terraform >= 1.5.0, Make.
 
 Install example (macOS):
 ```bash
@@ -78,6 +78,12 @@ The hosting environment is organized into modular infrastructure blocks:
 | **Database** | Azure MySQL Flexible Server | Persistent, private database engine isolated via Private DNS |
 | **Secrets Engine** | Azure Key Vault | Zero-knowledge secret and SSH key vaults |
 | **CI/CD & Portal** | Jenkins (Dockerized) | Web-based management portal running on the Jumpbox VM |
+
+This is the full enterprise-scale set, including a preprod+prod
+environment split. Want a cheaper, quota-free first deploy instead -
+single environment, Azure Files NFS instead of NetApp Files? Check out
+the [`main` branch](https://github.com/chinmaymjog/azure-vm-hosting-solution)
+- the same platform, scaled down for a first try.
 
 ---
 
