@@ -1,6 +1,6 @@
 -include .env
 
-.PHONY: help setup bootstrap hub-init hub-deploy infra-init infra-preprod infra-prod clean
+.PHONY: help setup bootstrap hub-init hub-deploy infra-init infra-deploy clean
 
 # --- 🏷️ Configuration ---
 PROJECT_NAME_INPUT ?= $(PROJECT_NAME)
@@ -28,9 +28,8 @@ help:
 	@echo "  make bootstrap      Bootstrap Azure state storage (RG & SA)"
 	@echo "  make hub-init       Initialize Shared Hub"
 	@echo "  make hub-deploy     Deploy Shared Hub"
-	@echo "  make infra-init     Initialize Platform Spokes"
-	@echo "  make infra-preprod  Deploy Preprod Environment"
-	@echo "  make infra-prod     Deploy Prod Environment"
+	@echo "  make infra-init     Initialize Platform Spoke"
+	@echo "  make infra-deploy   Deploy the Platform Spoke"
 	@echo "  make jenkins-sync   Sync Automation Stack (Ansible + Jenkins)"
 	@echo "  make jenkins-up     Spin up Jenkins Management Portal"
 
@@ -91,44 +90,32 @@ hub-deploy:
 		-var="project_name=$(PROJECT_NAME)" \
 		-auto-approve
 
-# --- Environment Spokes ---
+# --- Platform Spoke ---
 infra-init:
 	cd infra/terraform/platform && terraform init \
 		-backend-config="resource_group_name=$(TF_STATE_RG)" \
 		-backend-config="storage_account_name=$(TF_STATE_STORAGE)"
 
-infra-preprod:
-	cd infra/terraform/platform && terraform workspace select preprod || terraform workspace new preprod
+infra-deploy:
 	cd infra/terraform/platform && terraform apply \
-		-var-file="environments/preprod.tfvars" \
-		-var="project_name=$(PROJECT_NAME)" \
-		-auto-approve
-
-infra-prod:
-	cd infra/terraform/platform && terraform workspace select prod || terraform workspace new prod
-	cd infra/terraform/platform && terraform apply \
-		-var-file="environments/prod.tfvars" \
+		-var-file="environments/main.tfvars" \
 		-var="project_name=$(PROJECT_NAME)" \
 		-auto-approve
 
 # --- 🏗️ Configuration & Onboarding ---
 
-# Sync Jenkins and Ansible logic for all environments
+# Sync Jenkins and Ansible logic
 jenkins-sync:
-	@echo "📡 Generating Dynamic Inventory for All Environments..."
+	@echo "📡 Generating Dynamic Inventory..."
 	@echo "[local]\nlocalhost ansible_connection=local\n" > infra/ansible/hosts
-	@for env in preprod prod; do \
-		if [ "$$env" = "preprod" ]; then group="preproduction"; else group="production"; fi; \
-		echo "Fetching IPs for $$env..."; \
-		WEB_IPS=$$(cd infra/terraform/platform && terraform workspace select $$env >/dev/null 2>&1 && terraform output -json vm_private_ips | jq -r '.[]' 2>/dev/null || echo ""); \
-		echo "[$$group]" >> infra/ansible/hosts; \
-		count=1; \
-		for ip in $$WEB_IPS; do \
-			echo "webvm-ubu-shrd01-$$env-we-0$$count ansible_host=$$ip" >> infra/ansible/hosts; \
-			count=$$((count+1)); \
-		done; \
-		echo "" >> infra/ansible/hosts; \
-	done
+	@WEB_IPS=$$(cd infra/terraform/platform && terraform output -json vm_private_ips | jq -r '.[]' 2>/dev/null || echo ""); \
+	echo "[preproduction]" >> infra/ansible/hosts; \
+	count=1; \
+	for ip in $$WEB_IPS; do \
+		echo "webvm-ubu-shrd01-main-we-0$$count ansible_host=$$ip" >> infra/ansible/hosts; \
+		count=$$((count+1)); \
+	done; \
+	echo "" >> infra/ansible/hosts
 	@echo "[all:vars]\nansible_user=azureuser" >> infra/ansible/hosts
 	@echo "📡 Syncing Automation Stack to Jumpbox..."
 	@rsync -avz -e "ssh -o StrictHostKeyChecking=no -i ./ssh-key" --exclude=".DS_Store" ./infra/ azureuser@$$(cd infra/terraform/shared-hub && terraform output -raw ssh_command_jumpbox | awk '{print $$NF}' | cut -d@ -f2):~/infra/
@@ -160,15 +147,13 @@ jenkins-up:
 	echo "========================================================================" && \
 	echo ""
 
-# Destroy infrastructure for a specific environment
+# Destroy the Platform Spoke
 infra-destroy:
-	@if [ -z "$(ENV)" ]; then echo "❌ Error: Please specify ENV=preprod or ENV=prod"; exit 1; fi
-	cd infra/terraform/platform && terraform workspace select $(ENV) || terraform workspace new $(ENV)
-	cd infra/terraform/platform && terraform destroy -var-file="environments/$(ENV).tfvars" -var="project_name=$(PROJECT_NAME)" -auto-approve
+	cd infra/terraform/platform && terraform destroy -var-file="environments/main.tfvars" -var="project_name=$(PROJECT_NAME)" -auto-approve
 
 # Destroy the Hub (Run this LAST)
 hub-destroy:
 	cd infra/terraform/shared-hub && terraform destroy -var="project_name=$(PROJECT_NAME)" -auto-approve
 
 clean:
-	@echo "Cleanup targets: 'make infra-destroy ENV=...' or 'make hub-destroy'"
+	@echo "Cleanup targets: 'make infra-destroy' or 'make hub-destroy'"

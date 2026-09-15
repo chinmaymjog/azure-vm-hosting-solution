@@ -21,15 +21,15 @@ make jenkins-sync
 The Ansible playbook ([`server_web_configuration.yml`](infra/ansible/playbooks/server_web_configuration.yml)) establishes:
 * **Web Stack:** Apache2 (`mpm_event` mode) + PHP-FPM integration via `mod_fcgid` and `proxy_fcgi`.
 * **Security & Hardening:** Enforces TLS redirect rules, registers systemd template units for isolated multi-PHP environments, and locks down directory permissions.
-* **Shared Storage Structure:** Mounts and configures the distributed NetApp fileshare path under:
-  📁 `/netappwebsites/`
+* **Shared Storage Structure:** Mounts and configures the shared website fileshare path under:
+  📁 `/websites/`
 * **Isolated Group Permissions:** Restricts access using the `web_users` system group and strict GID propagation rules on document roots.
 
 ---
 
 ## 🚀 2. Onboarding New Sites
 
-Adding a new shared website provisions an isolated database, a dedicated database user, secure NetApp web directories, and a matching Apache Virtual Host configuration.
+Adding a new shared website provisions an isolated database, a dedicated database user, secure website directories, and a matching Apache Virtual Host configuration.
 
 ### Method A: Using the Hosting Management Portal (Jenkins) — *Recommended*
 1. Open your browser and navigate to the portal:
@@ -46,7 +46,7 @@ Adding a new shared website provisions an isolated database, a dedicated databas
 5. Click **Build**. The pipeline will:
    * Bootstrap the isolated MySQL Database on the Azure Database for MySQL Flexible Server.
    * Generate secure system credentials and write them to the encrypted site register.
-   * Establish isolated NetApp directories and deploy a default `index.php` welcome page.
+   * Establish isolated website directories and deploy a default `index.php` welcome page.
    * Deploy the Apache Virtual Host configuration and hot-reload Apache across the web VM cluster.
 
 ### Method B: Manual CLI Run (Ansible)

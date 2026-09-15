@@ -1,3 +1,24 @@
+# Private Endpoint for the Website Storage (Azure Files NFS)
+resource "azurerm_private_endpoint" "website_pe" {
+  name                = "pe-website-${var.environment}"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  subnet_id           = azurerm_subnet.snet_compute.id
+
+  private_service_connection {
+    name                           = "psc-website"
+    private_connection_resource_id = azurerm_storage_account.st_website.id
+    is_manual_connection           = false
+    subresource_names              = ["file"]
+  }
+
+  # Automatic DNS Registration
+  private_dns_zone_group {
+    name                 = "dns-group-website"
+    private_dns_zone_ids = [azurerm_private_dns_zone.storage_dns.id]
+  }
+}
+
 # Private Endpoint for the Shared Hub Backup Storage
 resource "azurerm_private_endpoint" "backup_pe" {
   name                = "pe-shared-backups-${var.environment}"

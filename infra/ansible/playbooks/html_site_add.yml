@@ -16,9 +16,9 @@
           - site_url is match('^[a-zA-Z0-9][-a-zA-Z0-9.]*\\.[a-zA-Z]{2,11}$')
         fail_msg: "🚨 Invalid FQDN '{{ site_url | default('') }}'! Domain must be a valid FQDN (e.g. example.com) without protocol prefixes (http://) or trailing slashes (/)."
 
-    - name: Set environment-specific site URL
+    - name: Set effective site URL
       ansible.builtin.set_fact:
-        effective_site_url: "{{ 'preprod-' + site_url if 'preproduction' in group_names else site_url }}"
+        effective_site_url: "{{ site_url }}"
 
     - name: Check if Apache config file exists in sites-available
       ansible.builtin.stat:
@@ -39,7 +39,7 @@
       become: false
       ansible.builtin.shell: |
         rndm=$(( 10000 + $RANDOM % 90000 ))
-        user=$(echo {{ site_url }} | tr -d '.,-' | sed -e s/preprod//g | cut -c 1-10)_$rndm
+        user=$(echo {{ site_url }} | tr -d '.,-' | cut -c 1-10)_$rndm
         echo $user
       register: username
       args:

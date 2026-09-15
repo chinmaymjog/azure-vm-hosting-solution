@@ -12,9 +12,9 @@ variable "location" {
 }
 
 variable "environment" {
-  description = "Environment name (prod/preprod)"
+  description = "Environment name"
   type        = string
-  default     = "preprod"
+  default     = "main"
 }
 
 variable "tags" {
@@ -90,23 +90,11 @@ variable "mysql_backup_retention_days" {
   default     = 7
 }
 
-# --- NetApp Variables ---
-variable "netapp_pool_size_tb" {
-  description = "Size of the NetApp Pool in TB (Absolute Min 4)"
-  type        = number
-  default     = 4
-}
-
-variable "netapp_volume_size_gb" {
-  description = "Size of the NetApp Volume in GB"
+# --- Website Storage Variables ---
+variable "website_storage_gb" {
+  description = "Size of the website NFS share in GB (Premium file shares, min 100)"
   type        = number
   default     = 100
-}
-
-variable "netapp_service_level" {
-  description = "Service level for NetApp (Standard is most cost-effective)"
-  type        = string
-  default     = "Standard"
 }
 
 # --- Front Door Variables ---

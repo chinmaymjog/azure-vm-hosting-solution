@@ -1,4 +1,4 @@
-DOC_ROOT: /netappwebsites
+DOC_ROOT: /websites
 AUTH_FILES: /etc/apache2/auth-files
 APACHE2_CONF: /etc/apache2
 APACHE2_AVAILABLE: /etc/apache2/sites-available
