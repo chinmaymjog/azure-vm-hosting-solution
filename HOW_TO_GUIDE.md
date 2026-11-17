@@ -39,7 +39,7 @@ The `Makefile` and Terraform will automatically load these variables from `.env`
 Before running any Terraform deployment steps, customize the infrastructure scale, network bounds, and database by editing [infra/terraform/platform/environments/main.tfvars](infra/terraform/platform/environments/main.tfvars) (cost-optimized defaults).
 
 Key parameters you can tune in this file before deployment:
-* `my_ip`: Change this from `*` to your office or home public IP range (e.g. `198.51.100.42/32`) to lock down administrative port access at the network firewall.
+* `my_ip`: Optional. Defaults to the public IP of the machine running Terraform; set it to a fixed office or home IP range (e.g. `198.51.100.42/32`) if you SSH from elsewhere. Wildcards (`*`, `0.0.0.0/0`) are rejected.
 * `vnet_address_space`: Set the Spoke VNet subnet prefix to avoid overlaps with your corporate or existing cloud networks.
 * `vm_count` & `vm_size`: Sizing and quantity of compute web VM nodes.
 * `mysql_sku` & `mysql_storage_gb`: Performance tier and storage size for the MySQL database.

@@ -129,12 +129,15 @@ data "http" "client_ip" {
 }
 
 resource "azurerm_storage_account" "st_backups" {
-  name                       = "stbackup${lower(random_id.storage_suffix.hex)}"
-  resource_group_name        = azurerm_resource_group.hub_rg.name
-  location                   = azurerm_resource_group.hub_rg.location
-  account_tier               = "Premium"
-  account_replication_type   = "LRS"
-  account_kind               = "FileStorage"
+  name                     = "stbackup${lower(random_id.storage_suffix.hex)}"
+  resource_group_name      = azurerm_resource_group.hub_rg.name
+  location                 = azurerm_resource_group.hub_rg.location
+  account_tier             = "Premium"
+  account_replication_type = "LRS"
+  account_kind             = "FileStorage"
+  # NFS shares require HTTPS-only to be off; access is limited by the Deny network rules below.
+  #trivy:ignore:AZU-0008
+  #trivy:ignore:AZU-0059
   https_traffic_only_enabled = false # Required for NFS
 
   network_rules {

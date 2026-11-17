@@ -60,9 +60,10 @@ the diagram in `README.md`.
 - This deploys real, billed Azure infrastructure - there is no free
   tier here. Run `make infra-destroy` and `make hub-destroy` when
   you're done experimenting.
-- `my_ip` defaults to `"*"` (open SSH ingress to the Jumpbox, though
-  key-only auth + Fail2Ban still apply) - set it to your real IP
-  before deploying anything you care about.
+- `my_ip` (Jumpbox SSH source) defaults to the public IP of the
+  machine running Terraform and rejects wildcards (`*`, `0.0.0.0/0`).
+  Set it to a fixed IP/CIDR if you SSH from elsewhere; key-only auth +
+  Fail2Ban still apply on top.
 - The Azure Front Door WAF policy ships in `Detection` mode, not
   `Prevention` - it logs threats but does not block them by default.
 - No secret-rotation automation - Key Vault versioning exists, but
