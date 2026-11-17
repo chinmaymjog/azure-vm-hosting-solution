@@ -83,5 +83,14 @@
       when: site_db_name | default('') != ""
 
     - name: Take Backup
-      shell: mysqldump --force --opt --skip-lock-tables -h {{ db_host }} -u {{ db_user }}  -p"{{ db_pass }}" --databases {{ site_db_name }} | gzip > {{ BACKUP_PATH }}/{{ web_environment }}/{{ site_db_name }}_{{ ansible_facts['date_time']['date'] }}.sql.gz
+      shell: |
+        set -o pipefail
+        OUT="{{ BACKUP_PATH }}/{{ web_environment }}/{{ site_db_name }}_{{ ansible_facts['date_time']['date'] }}.sql.gz"
+        if ! mysqldump --single-transaction --opt --skip-lock-tables -h {{ db_host }} -u {{ db_user }} -p"{{ db_pass }}" --databases {{ site_db_name }} | gzip > "$OUT"; then
+          rm -f "$OUT"
+          exit 1
+        fi
+        test -s "$OUT"
+      args:
+        executable: /bin/bash
       when: site_db_name | default('') != ""
