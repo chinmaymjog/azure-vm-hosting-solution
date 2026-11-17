@@ -1,6 +1,6 @@
 # CI Workflows
 
-Place CI/CD workflow definitions here.
+Workflow definitions live here: `ci.yml` (lint and format checks) and `claude-agent.yml` (owner-only Claude agent).
 
 Recommended checks:
 - lint and formatting

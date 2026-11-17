@@ -38,3 +38,20 @@ Before opening a Pull Request:
 - Update README when the deploy flow, Stack Catalog, or onboarding steps change.
 - Update `docs/tasks.md` when tracked work starts or finishes.
 - Update `docs/architecture.md` when network topology, storage backend, or secret strategy changes.
+
+## AI-Assisted Contributions
+
+AI tools are welcome, with these rules:
+
+- **You are accountable** for every line you submit. Read and understand the code; unreviewed AI output will be closed.
+- **Disclose** substantial AI assistance in the PR description.
+- Never paste credentials, state files, database dumps or tenant data into AI tools, issues or PRs.
+- Low-effort, bulk or off-topic AI-generated PRs and issues may be closed without review.
+
+## Maintainer Automation
+
+The Claude agent GitHub workflow is restricted to the repository owner and has no Azure credentials. Agent-authored PRs get the same review and CI requirements as any other PR and are never auto-merged.
+
+## Security Issues
+
+See [SECURITY.md](SECURITY.md); do not file them as public issues.
