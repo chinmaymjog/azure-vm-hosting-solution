@@ -89,6 +89,7 @@
           Metadata: "true"
         return_content: true
       register: token_response
+      no_log: true
       when:
         - site_url != ""
         - sites_available.stat.exists
@@ -104,6 +105,7 @@
           Authorization: "Bearer {{ (token_response.content | from_json).access_token }}"
         return_content: true
       register: secret_response
+      no_log: true
       when:
         - site_url != ""
         - sites_available.stat.exists
@@ -112,6 +114,7 @@
     - name: Set DB root password fact
       set_fact:
         db_pass: "{{ (secret_response.content | from_json).value }}"
+      no_log: true
       when:
         - site_url != ""
         - sites_available.stat.exists
@@ -149,6 +152,7 @@
         login_password: "{{ db_pass }}"
         name: "{{ username_from_json }}"
         state: absent
+      no_log: true
       when:
         - site_url != ""
         - sites_available.stat.exists
@@ -167,6 +171,7 @@
         login_password: "{{ db_pass }}"
         name: "{{ username_from_json }}"
         state: absent
+      no_log: true
       when:
         - site_url != ""
         - sites_available.stat.exists
