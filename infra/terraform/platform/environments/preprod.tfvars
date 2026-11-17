@@ -48,4 +48,5 @@ vnet_address_space = ["10.0.0.0/16"]  # Virtual Network range
 subnet_newbits     = 8                # Bit size multiplier for platform subnets
 hub_address_space  = ["10.10.0.0/16"] # Hub network range housing the administrative Jumpbox
 jumpbox_size       = "Standard_B1s"   # Size of the control-plane Ansible host
-my_ip              = "*"              # Permitted ingress IP for administrative access (Change to your home IP)
+# my_ip: leave unset to allow SSH only from the machine running Terraform; set a specific IP/CIDR (e.g. "198.51.100.42/32") to override. Wildcards are rejected.
+# my_ip = "198.51.100.42/32"
