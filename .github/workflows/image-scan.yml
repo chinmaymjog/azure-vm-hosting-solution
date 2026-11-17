@@ -1,0 +1,69 @@
+name: Image scan
+
+# Builds the Jenkins jumpbox image and scans it with Trivy for known
+# vulnerabilities. Reports fixable HIGH/CRITICAL findings (report-only for now); unfixed ones
+# are ignored. Also runs weekly because new CVEs are disclosed against unchanged
+# images. Not a required check: it is path-filtered on PRs.
+on:
+  pull_request:
+    paths:
+      - infra/jenkins/**
+      - .github/workflows/image-scan.yml
+  push:
+    branches: [main]
+  schedule:
+    - cron: "31 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: image-scan-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  trivy:
+    name: Trivy (jenkins)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write # upload SARIF to the Security tab
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Build image
+        run: docker build -t local/jenkins:scan infra/jenkins
+
+      - name: Scan (SARIF report)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: local/jenkins:scan
+          format: sarif
+          output: trivy-results.sarif
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          limit-severities-for-sarif: true
+          exit-code: "0"
+
+      - name: Upload report to Security tab
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-jenkins
+
+      # Report-only for now: findings are in the job log and the Security tab.
+      # Set exit-code to "1" to fail the job on fixable HIGH/CRITICAL findings
+      # once the known ones are fixed.
+      - name: Scan (table report)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: local/jenkins:scan
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "0"
