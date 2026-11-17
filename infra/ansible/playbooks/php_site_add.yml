@@ -38,6 +38,7 @@
           Metadata: "true"
         return_content: true
       register: token_response
+      no_log: true
 
     - name: Fetch MySQL Admin Password from Azure Key Vault
       delegate_to: localhost
@@ -48,10 +49,12 @@
           Authorization: "Bearer {{ (token_response.content | from_json).access_token }}"
         return_content: true
       register: secret_response
+      no_log: true
 
     - name: Set DB root password fact
       set_fact:
         db_pass: "{{ (secret_response.content | from_json).value }}"
+      no_log: true
 
     - name: Check if Apache config file exists in sites-available
       ansible.builtin.stat:
@@ -244,6 +247,7 @@
         login_password: "{{ db_pass }}"
         name: "{{ site_user }}"
         state: present
+      no_log: true
       when: 
         - sites_available.stat.exists == False
 
@@ -264,6 +268,7 @@
         password: "{{ site_user_pass }}"
         host: "%"
         priv: "{{ username.stdout }}.*:ALL,GRANT"
+      no_log: true
       when: 
         - sites_available.stat.exists == False
 
