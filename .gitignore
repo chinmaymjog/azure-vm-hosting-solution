@@ -27,7 +27,6 @@ ssh-key.pub
 **/.terraform/
 *.tfstate
 *.tfstate.*
-.terraform.lock.hcl
 *.tfvars
 !**/environments/*.tfvars
 *.tfvars.json
