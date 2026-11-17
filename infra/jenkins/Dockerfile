@@ -15,6 +15,7 @@ RUN jenkins-plugin-cli -f /usr/share/jenkins/ref/plugins.txt
 USER root
 
 RUN apt-get update && \
+    apt-get upgrade -y && \
     apt-get install -y ansible sshpass python3-pymysql && \
     rm -rf /var/lib/apt/lists/*
 
