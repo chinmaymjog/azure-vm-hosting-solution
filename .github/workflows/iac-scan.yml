@@ -1,9 +1,8 @@
 name: IaC scan
 
 # Scans the Terraform in infra/terraform/ with Trivy for
-# misconfigurations. Report-only for now: findings are in the job log and the
-# Security tab. Set exit-code to "1" on the table step to fail on HIGH/CRITICAL
-# findings once the known ones are fixed. Also runs weekly. Not a required
+# misconfigurations. Fails on HIGH/CRITICAL findings; intentional exceptions are
+# suppressed in code with a justification (#trivy:ignore). Also runs weekly. Not a required
 # check: it is path-filtered on PRs.
 on:
   pull_request:
@@ -54,11 +53,11 @@ jobs:
           sarif_file: trivy-results.sarif
           category: trivy-iac-terraform
 
-      - name: Scan (table report)
+      - name: Scan (fail on HIGH/CRITICAL)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: config
           scan-ref: infra/terraform
           format: table
           severity: HIGH,CRITICAL
-          exit-code: "0"
+          exit-code: "1"
