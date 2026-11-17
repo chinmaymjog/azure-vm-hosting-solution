@@ -4,12 +4,15 @@ resource "random_id" "website_storage_suffix" {
 }
 
 resource "azurerm_storage_account" "st_website" {
-  name                       = "stweb${lower(random_id.website_storage_suffix.hex)}"
-  resource_group_name        = azurerm_resource_group.rg.name
-  location                   = azurerm_resource_group.rg.location
-  account_tier               = "Premium"
-  account_replication_type   = "LRS"
-  account_kind               = "FileStorage"
+  name                     = "stweb${lower(random_id.website_storage_suffix.hex)}"
+  resource_group_name      = azurerm_resource_group.rg.name
+  location                 = azurerm_resource_group.rg.location
+  account_tier             = "Premium"
+  account_replication_type = "LRS"
+  account_kind             = "FileStorage"
+  # NFS shares require HTTPS-only to be off; access is limited by the Deny network rules below.
+  #trivy:ignore:AZU-0008
+  #trivy:ignore:AZU-0059
   https_traffic_only_enabled = false # Required for NFS
 
   network_rules {

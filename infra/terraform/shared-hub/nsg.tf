@@ -12,7 +12,7 @@ resource "azurerm_network_security_group" "nsg_jumpbox" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_range     = "22"
-    source_address_prefix      = var.my_ip
+    source_address_prefix      = coalesce(var.my_ip, chomp(data.http.client_ip.response_body))
     destination_address_prefix = "*"
   }
 
