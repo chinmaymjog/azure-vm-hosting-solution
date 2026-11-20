@@ -13,4 +13,4 @@ Terraform + Ansible + Jenkins for a hardened shared-hosting platform on Azure (H
 - Keep Ansible playbooks idempotent. Call out any Terraform change that could force replacement of existing resources so the owner can check the real plan.
 - Update README, `HOW_TO_GUIDE.md`, `SITE_MANAGEMENT.md` and `docs/` when setup, deployment or onboarding steps change.
 - Conventional Commits; keep changes minimal and scoped; one issue per PR.
-- Open a PR against `main` that references the issue (`Fixes #N`). Never push to `main` directly.
+- Open a PR against `advanced` that references the issue (`Fixes #N`). Never push to `advanced` directly.

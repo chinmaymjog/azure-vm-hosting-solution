@@ -7,7 +7,7 @@ name: Denylist scan
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [advanced]
   schedule:
     - cron: "41 5 * * 1"
   workflow_dispatch:

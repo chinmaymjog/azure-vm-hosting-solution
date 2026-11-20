@@ -10,7 +10,7 @@ on:
       - infra/jenkins/**
       - .github/workflows/image-scan.yml
   push:
-    branches: [main]
+    branches: [advanced]
   schedule:
     - cron: "31 4 * * 1"
   workflow_dispatch:
