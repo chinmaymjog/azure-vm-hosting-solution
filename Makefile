@@ -56,7 +56,7 @@ bootstrap:
 	@echo "🚀 Idempotent Bootstrapping of Azure State Storage..."
 	@if ! az group show --name rg-$(PROJECT_NAME)-state >/dev/null 2>&1; then \
 		echo "Creating Resource Group: rg-$(PROJECT_NAME)-state..."; \
-		az group create --name rg-$(PROJECT_NAME)-state --location westeurope --only-show-errors > /dev/null; \
+		az group create --name rg-$(PROJECT_NAME)-state --location eastus2 --only-show-errors > /dev/null; \
 	else \
 		echo "✅ Resource Group rg-$(PROJECT_NAME)-state already exists."; \
 	fi
