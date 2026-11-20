@@ -35,6 +35,7 @@
           Metadata: "true"
         return_content: true
       register: token_response
+      no_log: true
 
     - name: Fetch MySQL Admin Password from Azure Key Vault
       delegate_to: localhost
@@ -46,10 +47,12 @@
           Authorization: "Bearer {{ (token_response.content | from_json).access_token }}"
         return_content: true
       register: secret_response
+      no_log: true
 
     - name: Set DB root password fact
       set_fact:
         db_pass: "{{ (secret_response.content | from_json).value }}"
+      no_log: true
 
     - name: Read site metadata from persistent NFS store
       ansible.builtin.shell: |
@@ -79,9 +82,23 @@
       ansible.builtin.file:
         path: "{{ BACKUP_PATH }}/{{ web_environment }}"
         state: directory
-        mode: "0777"
+        owner: root
+        group: root
+        mode: "0750"
       when: site_db_name | default('') != ""
 
     - name: Take Backup
-      shell: mysqldump --force --opt --skip-lock-tables -h {{ db_host }} -u {{ db_user }}  -p"{{ db_pass }}" --databases {{ site_db_name }} | gzip > {{ BACKUP_PATH }}/{{ web_environment }}/{{ site_db_name }}_{{ ansible_facts['date_time']['date'] }}.sql.gz
+      shell: |
+        set -o pipefail
+        OUT="{{ BACKUP_PATH }}/{{ web_environment }}/{{ site_db_name }}_{{ ansible_facts['date_time']['date'] }}.sql.gz"
+        if ! mysqldump --single-transaction --opt --skip-lock-tables -h {{ db_host }} -u {{ db_user }} --databases {{ site_db_name }} | gzip > "$OUT"; then
+          rm -f "$OUT"
+          exit 1
+        fi
+        test -s "$OUT"
+      args:
+        executable: /bin/bash
+      environment:
+        MYSQL_PWD: "{{ db_pass }}"
+      no_log: true
       when: site_db_name | default('') != ""

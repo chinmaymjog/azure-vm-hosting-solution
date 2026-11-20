@@ -48,6 +48,8 @@ resource "azurerm_network_security_group" "nsg_compute" {
   # --- OUTBOUND RULES ---
 
   # Allow Outbound for Updates (HTTP/HTTPS)
+  # Compute VMs need package repositories on the Internet; restricted to ports 80/443.
+  #trivy:ignore:AZU-0051
   security_rule {
     name                       = "AllowOutboundUpdates"
     priority                   = 100

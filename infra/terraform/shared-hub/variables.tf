@@ -7,7 +7,7 @@ variable "project_name" {
 variable "location" {
   description = "Azure region for the Hub"
   type        = string
-  default     = "West Europe"
+  default     = "East US 2"
 }
 
 variable "tags" {
@@ -39,7 +39,12 @@ variable "jumpbox_size" {
 }
 
 variable "my_ip" {
-  description = "Your Home/Office IP"
+  description = "Source address (IP or CIDR) allowed to reach the Jumpbox over SSH. Defaults to the public IP of the machine running Terraform."
   type        = string
-  default     = "*"
+  default     = null
+
+  validation {
+    condition     = var.my_ip == null || !contains(["*", "0.0.0.0/0", "Internet", "Any"], var.my_ip)
+    error_message = "my_ip must be a specific IP or CIDR, not a wildcard such as \"*\" or \"0.0.0.0/0\"."
+  }
 }

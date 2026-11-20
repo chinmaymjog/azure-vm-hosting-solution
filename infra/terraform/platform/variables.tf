@@ -8,7 +8,7 @@ variable "project_name" {
 variable "location" {
   description = "Azure region for deployment"
   type        = string
-  default     = "West Europe"
+  default     = "East US 2"
 }
 
 variable "environment" {
@@ -124,9 +124,14 @@ variable "hub_address_space" {
 }
 
 variable "my_ip" {
-  description = "Your Home/Office IP for restricted Jumpbox access (e.g. 1.2.3.4)"
+  description = "Your Home/Office IP for restricted Jumpbox access (e.g. 1.2.3.4). Defaults to the public IP of the machine running Terraform."
   type        = string
-  default     = "*" # WARNING: Change this to your real IP for security
+  default     = null
+
+  validation {
+    condition     = var.my_ip == null || !contains(["*", "0.0.0.0/0", "Internet", "Any"], var.my_ip)
+    error_message = "my_ip must be a specific IP or CIDR, not a wildcard such as \"*\" or \"0.0.0.0/0\"."
+  }
 }
 
 variable "jumpbox_size" {

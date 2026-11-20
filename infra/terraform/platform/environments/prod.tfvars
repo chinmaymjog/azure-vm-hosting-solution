@@ -8,7 +8,7 @@
 # 1. Core Platform & Identification Parameters
 # ------------------------------------------------------------------------------
 project_name = "shrdhosting"
-location     = "West Europe"
+location     = "East US 2"
 environment  = "prod"
 
 tags = {
