@@ -7,7 +7,7 @@ variable "project_name" {
 variable "location" {
   description = "Azure region for the Hub"
   type        = string
-  default     = "West Europe"
+  default     = "East US 2"
 }
 
 variable "tags" {
